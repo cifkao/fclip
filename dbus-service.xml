@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<node name="/com/fclip/Fclip">
+    <interface name="com.fclip.Fclip">
+        <method name="Add">
+            <arg type="as" name="files" direction="in" />
+            <arg type="b" name="recursive" direction="in" />
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="Remove">
+            <arg type="as" name="files" direction="in" />
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="Clear" />
+        <method name="ListFiles">
+            <arg type="s" name="directory" direction="in" />
+            <arg type="b" name="absolute" direction="in" />
+            <arg type="as" name="files" direction="out" />
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="DirectoryListing">
+            <arg type="s" name="directory" direction="in" />
+            <arg type="as" name="files" direction="out" />
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="Stash">
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="Unstash">
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="ListStash">
+            <arg type="as" name="stash" direction="out" />
+        </method>
+    </interface>
+</node>

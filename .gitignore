@@ -1,3 +1,12 @@
+fclip
+fclipd
+Fclip_adaptor.h
+Fclip_proxy.h
+
+nbproject
+*.swp
+*.swo
+
 # Compiled Object files
 *.slo
 *.lo
