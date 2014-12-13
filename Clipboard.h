@@ -5,6 +5,7 @@
 #include <deque>
 #include <string>
 #include <memory>
+#include <cstddef>
 #include <boost/filesystem.hpp>
 #include "TreeNode.h"
 #include "Directory.h"
@@ -77,7 +78,7 @@ public:
    * Restore a stashed state.
    * @param stashId the index of the stashed state
    */
-  bool unstash(uint32_t stashId, std::vector<std::string> &messages);
+  bool unstash(std::size_t stashId, std::vector<std::string> &messages);
   
   /**
    * List all stashed states on the stack.

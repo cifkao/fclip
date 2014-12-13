@@ -44,12 +44,10 @@ public:
   virtual void Stash(std::vector< std::string >& messages, bool& success)
   { success = clip_.stash(messages); }
   
-  virtual void Unstash(std::vector< std::string >& messages, bool& success)
-  { success = clip_.unstash(messages); }
+  virtual void Unstash(const uint32_t& n, std::vector< std::string >& messages, bool& success)
+  { success = clip_.unstash(n, messages); }
   
-  virtual std::vector<std::string> ListStash() {
-    return clip_.listStash();
-  }
+  virtual std::vector<std::string> ListStash() { return clip_.listStash(); }
 	
 private:
   Clipboard clip_;

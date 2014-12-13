@@ -31,6 +31,7 @@
             <arg type="b" name="success" direction="out" />
         </method>
         <method name="Unstash">
+            <arg type="u" name="n" direction="in" />
             <arg type="as" name="messages" direction="out" />
             <arg type="b" name="success" direction="out" />
         </method>

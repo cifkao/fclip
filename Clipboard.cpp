@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <cstddef>
 #include <boost/filesystem.hpp>
 #include "file_functions.h"
 #include "Directory.h"
@@ -226,7 +227,7 @@ bool Clipboard::stash(std::vector<std::string> &messages){
   return true;
 }
   
-bool Clipboard::unstash(std::vector<std::string> &messages){
+bool Clipboard::unstash(vector<string> &messages){
   if(!tree_->empty()){
     messages.push_back("Cannot unstash: clipboard is not empty");
     return false;
@@ -240,13 +241,16 @@ bool Clipboard::unstash(std::vector<std::string> &messages){
   return true;
 }
 
-bool Clipboard::unstash(uint32_t stashId, std::vector<std::string> &messages){
+bool Clipboard::unstash(size_t stashId, vector<string> &messages){
+  if(stashId==0)
+    return unstash(messages);
+  
   if(!tree_->empty()){
     messages.push_back("Cannot unstash: clipboard is not empty");
     return false;
   }
   if(stash_.size()<stashId+1){
-    messages.push_back("Cannot unstash: no stash " + stashId);
+    messages.push_back("Cannot unstash: no stash " + to_string(stashId));
     return false;
   }
   tree_ = move(stash_[stashId]);
