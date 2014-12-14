@@ -15,7 +15,7 @@ public:
   FclipServer (DBus::Connection &connection) :
     DBus::ObjectAdaptor(connection, "/Fclip") {}
     
-	virtual void Add(const std::vector< std::string >& files,
+  virtual void Add(const std::vector< std::string >& files,
     const bool& recursive,
     std::vector< std::string >& messages,
     bool& success)

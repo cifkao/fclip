@@ -6,7 +6,7 @@ LDLIBS=`pkg-config dbus-c++-1 --libs` -lboost_filesystem -lboost_system
 all: fclipd
 
 fclipd: fclipd.o FclipServer.o Clipboard.o Directory.o File.o file_functions.o
-	$(CXX) $(LDFLAGS) -o $@ $(SERVER_OBJS) $^ $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 fclipd.o: fclipd.cpp FclipServer.h Fclip_adaptor.h
 
