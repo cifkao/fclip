@@ -233,7 +233,7 @@ bool Clipboard::unstash(vector<string> &messages){
     return false;
   }
   if(stash_.empty()){
-    messages.push_back("Cannot unstash: stash is empty");
+    messages.push_back("Cannot unstash: no stash found");
     return false;
   }
   tree_ = move(stash_.front());
@@ -250,7 +250,7 @@ bool Clipboard::unstash(size_t stashId, vector<string> &messages){
     return false;
   }
   if(stash_.size()<stashId+1){
-    messages.push_back("Cannot unstash: no stash " + to_string(stashId));
+    messages.push_back("Cannot unstash: no stash #" + to_string(stashId));
     return false;
   }
   tree_ = move(stash_[stashId]);
@@ -264,6 +264,24 @@ vector<string> Clipboard::listStash(){
     list.push_back(lowestCommonAncestor(*tree.get()).string());
   }
   return move(list);
+}
+
+bool Clipboard::dropStash(vector<string> &messages){
+  if(stash_.empty()){
+    messages.push_back("Cannot drop stash: no stash found");
+    return false;
+  }
+  stash_.pop_front();
+  return true;
+}
+  
+bool Clipboard::dropStash(size_t stashId, vector<string> &messages){
+  if(stash_.size()<stashId+1){
+    messages.push_back("Cannot drop stash #" + to_string(stashId) + ": no such stash");
+    return false;
+  }
+  stash_.erase(stash_.begin() + stashId);
+  return true;
 }
 
 /* PRIVATE FUNCTIONS */

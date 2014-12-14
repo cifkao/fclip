@@ -87,6 +87,22 @@ public:
    */
   std::vector<std::string> listStash();
   
+  /**
+   * Drop the last stashed state (if any).
+   */
+  bool dropStash(std::vector<std::string> &messages);
+  
+  /**
+   * Drop a stashed state.
+   * @param stashId the index of the stashed state
+   */
+  bool dropStash(std::size_t stashId, std::vector<std::string> &messages);
+  
+  /**
+   * Drop all stashed states.
+   */
+  void clearStash(){ stash_.clear(); }
+  
 private:
   std::unique_ptr<Directory> tree_;
   std::deque<std::unique_ptr<Directory>> stash_;

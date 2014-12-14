@@ -38,5 +38,12 @@
         <method name="ListStash">
             <arg type="as" name="stash" direction="out" />
         </method>
+        <method name="DropStash">
+            <arg type="u" name="n" direction="in" />
+            <arg type="as" name="messages" direction="out" />
+            <arg type="b" name="success" direction="out" />
+        </method>
+        <method name="ClearStash">
+        </method>
     </interface>
 </node>

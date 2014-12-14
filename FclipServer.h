@@ -48,6 +48,12 @@ public:
   { success = clip_.unstash(n, messages); }
   
   virtual std::vector<std::string> ListStash() { return clip_.listStash(); }
+  
+  virtual void DropStash(const uint32_t& n, std::vector< std::string >& messages, bool& success)
+  { success = clip_.dropStash(n, messages); }
+  
+  virtual void ClearStash()
+  { clip_.clearStash(); }
 	
 private:
   Clipboard clip_;
