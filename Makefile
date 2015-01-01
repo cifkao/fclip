@@ -24,4 +24,4 @@ Fclip_adaptor.h: dbus-service.xml
 	dbusxx-xml2cpp $< --adaptor=$@
 
 clean:
-	$(RM) *.o Fclip_adaptor.h fclipd
+	$(RM) *.o fclipd
