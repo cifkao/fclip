@@ -32,7 +32,7 @@ public:
         register_method(Fclip_adaptor, ClearStash, _ClearStash_stub);
     }
 
-    ::DBus::IntrospectedInterface *const introspect() const 
+    ::DBus::IntrospectedInterface *introspect() const 
     {
         static ::DBus::IntrospectedArgument Add_args[] = 
         {
@@ -142,15 +142,15 @@ public:
     /* methods exported by this interface,
      * you will have to implement them in your ObjectAdaptor
      */
-    virtual void Add(const std::vector< std::string >& files, const bool& recursive, const std::vector< std::string >&  messages, const bool&  success) = 0;
-    virtual void Remove(const std::vector< std::string >& files, const std::vector< std::string >&  messages, const bool&  success) = 0;
+    virtual void Add(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void Remove(const std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Clear() = 0;
-    virtual void ListFiles(const std::string& directory, const bool& absolute, const std::vector< std::string >&  files, const std::vector< std::string >&  messages, const bool&  success) = 0;
-    virtual void DirectoryListing(const std::string& directory, const std::vector< std::string >&  files, const std::vector< std::string >&  messages, const bool&  success) = 0;
-    virtual void Stash(const std::vector< std::string >&  messages, const bool&  success) = 0;
-    virtual void Unstash(const uint32_t& n, const std::vector< std::string >&  messages, const bool&  success) = 0;
+    virtual void ListFiles(const std::string& directory, const bool& absolute, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void Stash(std::vector< std::string >& messages, bool& success) = 0;
+    virtual void Unstash(const uint32_t& n, std::vector< std::string >& messages, bool& success) = 0;
     virtual std::vector< std::string > ListStash() = 0;
-    virtual void DropStash(const uint32_t& n, const std::vector< std::string >&  messages, const bool&  success) = 0;
+    virtual void DropStash(const uint32_t& n, std::vector< std::string >& messages, bool& success) = 0;
     virtual void ClearStash() = 0;
 
 public:

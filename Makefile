@@ -1,6 +1,6 @@
 RM=rm -f
 CXX=g++
-CXXFLAGS=-fno-rtti -std=c++11 `pkg-config dbus-c++-1 --cflags`
+CXXFLAGS=-std=c++11 `pkg-config dbus-c++-1 --cflags`
 LDLIBS=`pkg-config dbus-c++-1 --libs` -lboost_filesystem -lboost_system
 
 all: fclipd
