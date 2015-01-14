@@ -1,49 +1,52 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <node name="/com/fclip/Fclip">
-    <interface name="com.fclip.Fclip">
-        <method name="Add">
-            <arg type="as" name="files" direction="in" />
-            <arg type="b" name="recursive" direction="in" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="Remove">
-            <arg type="as" name="files" direction="in" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="Clear" />
-        <method name="ListFiles">
-            <arg type="s" name="directory" direction="in" />
-            <arg type="b" name="absolute" direction="in" />
-            <arg type="as" name="files" direction="out" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="DirectoryListing">
-            <arg type="s" name="directory" direction="in" />
-            <arg type="as" name="files" direction="out" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="Stash">
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="Unstash">
-            <arg type="u" name="n" direction="in" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="ListStash">
-            <arg type="as" name="stash" direction="out" />
-        </method>
-        <method name="DropStash">
-            <arg type="u" name="n" direction="in" />
-            <arg type="as" name="messages" direction="out" />
-            <arg type="b" name="success" direction="out" />
-        </method>
-        <method name="ClearStash">
-        </method>
-    </interface>
+  <interface name="com.fclip.Fclip">
+    <method name="Add">
+      <arg type="as" name="files" direction="in" />
+      <arg type="b" name="recursive" direction="in" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="Remove">
+      <arg type="as" name="files" direction="in" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="Clear" />
+    <method name="ListFilesToStream">
+      <arg type="s" name="directory" direction="in" />
+      <arg type="b" name="absolute" direction="in" />
+      <arg type="s" name="stream" direction="in" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="DirectoryListing">
+      <arg type="s" name="directory" direction="in" />
+      <arg type="as" name="files" direction="out" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="LowestCommonAncestor">
+      <arg type="s" name="path" direction="out" />
+    </method>
+    <method name="Stash">
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="Unstash">
+      <arg type="u" name="n" direction="in" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="ListStash">
+      <arg type="as" name="stash" direction="out" />
+    </method>
+    <method name="DropStash">
+      <arg type="u" name="n" direction="in" />
+      <arg type="as" name="messages" direction="out" />
+      <arg type="b" name="success" direction="out" />
+    </method>
+    <method name="ClearStash">
+    </method>
+  </interface>
 </node>

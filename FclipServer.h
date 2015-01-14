@@ -28,18 +28,20 @@ public:
   
   virtual void Clear() { clip_.clear(); }
   
-  virtual void ListFiles(const std::string& directory,
+  virtual void ListFilesToStream(const std::string& directory,
     const bool& absolute,
-    std::vector< std::string >& files,
+    const std::string& stream,
     std::vector< std::string >& messages,
-    bool& success)
-  { success = clip_.listFiles(directory, absolute, files, messages); }
+    bool& success);
   
   virtual void DirectoryListing(const std::string& directory,
     std::vector< std::string >& files,
     std::vector< std::string >& messages,
     bool& success)
   { success = clip_.directoryListing(directory, files, messages); }
+
+  virtual std::string LowestCommonAncestor()
+  { return clip_.lowestCommonAncestor().string(); }
   
   virtual void Stash(std::vector< std::string >& messages, bool& success)
   { success = clip_.stash(messages); }

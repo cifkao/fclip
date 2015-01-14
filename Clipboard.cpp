@@ -145,37 +145,6 @@ bool Clipboard::remove(const string &filename, vector<string> &messages){
   return true;
 }
 
-bool Clipboard::listFiles(const fs::path &_path, bool absolute,
-        vector<string> &files, vector<string> &messages){
-  boost::system::error_code ec;
-  fs::path path = fs::canonical(_path, ec);
-  if(ec.value() != boost::system::errc::success){
-    messages.push_back("Cannot access " + _path.string() + ": " + ec.message());
-    return false;
-  }
-  
-  fs::path currentPath("");
-  Directory *currentDir = tree_.get();
-  for(auto it = path.begin(); it != path.end(); ++it){
-    const fs::path &p = *it;
-    Directory::iterator childIt = currentDir->find(p.string());
-    if(childIt==currentDir->end() || !childIt->second->directory())
-      return true;
-    
-    currentPath /= p;
-    currentDir = static_cast<Directory *>(childIt->second.get());
-    
-    if(currentDir->recursive()){
-      if(fs::is_directory(path, ec) && ec.value() == boost::system::errc::success)
-        return listFiles(path, absolute ? path : "", files, messages);
-      else
-        return true;
-    }
-  }
-  
-  return listFiles(*currentDir, path, absolute ? path : "", files, messages);
-}
-
 bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
         vector<string> &messages){
   boost::system::error_code ec;
@@ -285,47 +254,6 @@ bool Clipboard::dropStash(size_t stashId, vector<string> &messages){
 }
 
 /* PRIVATE FUNCTIONS */
-
-bool Clipboard::listFiles(const Directory &directory, const fs::path &path,
-        const fs::path &base, vector<string> &files, vector<string> &messages){
-  for(const auto &p : directory){
-    TreeNode &f = *p.second.get();
-    Directory &dir = static_cast<Directory &>(f);
-    // dir might be garbage! (have to check f.directory())
-    if(f.directory() && (!dir.empty() || dir.recursive())){
-      if(dir.recursive()){
-        listFiles(path / f.name(), base / f.name(), files, messages);
-      }else{
-        listFiles(dir, path / f.name(), base / f.name(), files, messages);
-      }
-    }else{
-      files.push_back((base / f.name()).string());
-    }
-  }
-  
-  return true;
-}
-
-bool Clipboard::listFiles(const fs::path &directory, const fs::path &base,
-        vector<string> &files, vector<string> &messages){
-  boost::system::error_code ec;
-  fs::directory_iterator it(directory, ec), eod;
-  if(ec.value() != boost::system::errc::success)
-    return false;
-  for(; it != eod; ++it){
-    fs::file_status s = it->symlink_status(ec);
-    fs::path path = it->path().string();
-    if(fs::status_known(s)){
-      if(fs::is_directory(s)){
-        listFiles(path, base / path.filename(), files, messages);
-      }else{
-        files.push_back((base / path.filename()).string());
-      }
-    }
-  }
-  
-  return true;
-}
 
 fs::path Clipboard::lowestCommonAncestor(const Directory &tree){
   fs::path path(tree.name());
