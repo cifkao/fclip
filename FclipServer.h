@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
+#include <dbus-c++/dbus.h>
 #include "Clipboard.h"
 #include "Fclip_adaptor.h"
 
@@ -13,7 +14,7 @@ class FclipServer : public com::fclip::Fclip_adaptor,
   public DBus::ObjectAdaptor {
 public:
   FclipServer (DBus::Connection &connection) :
-    DBus::ObjectAdaptor(connection, "/Fclip") {}
+    DBus::ObjectAdaptor(connection, "/com/fclip/Fclip") {}
     
   virtual void Add(const std::vector< std::string >& files,
     const bool& recursive,
