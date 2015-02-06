@@ -45,12 +45,13 @@ public:
         ri >> success;
     }
 
-    void Remove(const std::vector< std::string >& files, std::vector< std::string >& messages, bool& success)
+    void Remove(const std::vector< std::string >& files, const bool& removeParent, std::vector< std::string >& messages, bool& success)
     {
         ::DBus::CallMessage call;
         ::DBus::MessageIter wi = call.writer();
 
         wi << files;
+        wi << removeParent;
         call.member("Remove");
         ::DBus::Message ret = invoke_method (call);
         ::DBus::MessageIter ri = ret.reader();

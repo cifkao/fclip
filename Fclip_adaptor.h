@@ -46,6 +46,7 @@ public:
         static ::DBus::IntrospectedArgument Remove_args[] = 
         {
             { "files", "as", true },
+            { "removeParent", "b", true },
             { "messages", "as", false },
             { "success", "b", false },
             { 0, 0, 0 }
@@ -150,7 +151,7 @@ public:
      * you will have to implement them in your ObjectAdaptor
      */
     virtual void Add(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
-    virtual void Remove(const std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void Remove(const std::vector< std::string >& files, const bool& removeParent, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Clear() = 0;
     virtual void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream, std::vector< std::string >& messages, bool& success) = 0;
     virtual void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
@@ -190,9 +191,10 @@ private:
         ::DBus::MessageIter ri = call.reader();
 
         std::vector< std::string > argin1; ri >> argin1;
+        bool argin2; ri >> argin2;
         std::vector< std::string > argout1;
         bool argout2;
-        Remove(argin1, argout1, argout2);
+        Remove(argin1, argin2, argout1, argout2);
         ::DBus::ReturnMessage reply(call);
         ::DBus::MessageIter wi = reply.writer();
         wi << argout1;

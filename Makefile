@@ -20,17 +20,17 @@ File.o: File.cpp File.h
 
 Fclip_adaptor.h: dbus-service.xml
 	dbusxx-xml2cpp $< --adaptor=$@
-	
-	
+
+
 fclip: fclip.o file_functions.o
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lboost_program_options -lboost_system -lboost_filesystem
 
-FclipClient.o: FclipClient.h Fclip_proxy.h
-	
+fclip.o: fclip.cpp FclipClient.h Fclip_proxy.h
+
 Fclip_proxy.h: dbus-service.xml
 	dbusxx-xml2cpp $< --proxy=$@
-	
-	
+
+
 file_functions.o: file_functions.cpp file_functions.h
 
 clean:

@@ -78,14 +78,14 @@ bool Clipboard::add(const string &filename, bool recursive, vector<string> &mess
   return true;
 }
 
-bool Clipboard::remove(const vector<string> &files, vector<string> &messages){
+bool Clipboard::remove(const vector<string> &files, bool removeParent, vector<string> &messages){
   for(auto const file : files){
-    remove(file, messages);
+    remove(file, removeParent, messages);
   }
   return true;
 }
 
-bool Clipboard::remove(const string &filename, vector<string> &messages){
+bool Clipboard::remove(const string &filename, bool removeParent, vector<string> &messages){
   boost::system::error_code ec;
   fs::path path = file_functions::getCanonicalPathToSymlink(filename, ec);
   if(ec.value() != boost::system::errc::success){
@@ -96,6 +96,7 @@ bool Clipboard::remove(const string &filename, vector<string> &messages){
   fs::path currentPath("");
   TreeNode *current = tree_.get();
   
+  bool found = false; // if we found the file we wanted to remove
   auto targetIt = --path.end(); // the iterator pointing to the filename
   Directory *currentDir = nullptr;
   for(auto it = path.begin(); it != path.end(); ++it){
@@ -103,6 +104,8 @@ bool Clipboard::remove(const string &filename, vector<string> &messages){
     currentDir = static_cast<Directory *>(current);
     
     if(currentDir->recursive()){
+      // we need to manually add all files in the directory so that we can
+      // remove the one we want to remove
       fs::directory_iterator dirIt(currentPath, ec);
       if(ec.value() != boost::system::errc::success){
         messages.push_back("Cannot access " + currentPath.string() + ": " + ec.message());
@@ -130,17 +133,20 @@ bool Clipboard::remove(const string &filename, vector<string> &messages){
       current = childIt->second.get();
     }else{
       currentDir->remove(childIt);
+      found = true;
     }
     
     currentPath /= p;
   }
   
-  // clear empty non-permanent directories
-  while(currentDir != nullptr && currentDir->parent() != nullptr &&
-          currentDir->empty() && !currentDir->permanent()){
-    Directory *parent = currentDir->parent();
-    parent->remove(currentDir->name());
-    currentDir = parent;
+  // clear empty non-permanent parent directories
+  if(found && removeParent){
+    while(currentDir != nullptr && currentDir->parent() != nullptr &&
+            currentDir->empty() && !currentDir->permanent()){
+      Directory *parent = currentDir->parent();
+      parent->remove(currentDir->name());
+      currentDir = parent;
+    }
   }
   
   return true;

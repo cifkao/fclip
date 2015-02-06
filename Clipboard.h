@@ -32,14 +32,16 @@ public:
   /**
    * Remove a file from the clipboard.
    * @param file an absolute path to the file
+   * @param removeParent whether empty parent directories should be removed
    */
-  bool remove(const std::string &file, std::vector<std::string> &messages);
+  bool remove(const std::string &file, bool removeParent, std::vector<std::string> &messages);
   
   /**
    * Remove multiple files from the clipboard.
    * @param files a vector of absolute paths
+   * @param removeParent whether empty parent directories should be removed
    */
-  bool remove(const std::vector<std::string> &files, std::vector<std::string> &messages);
+  bool remove(const std::vector<std::string> &files, bool removeParent, std::vector<std::string> &messages);
   
   /**
    * Removes all files from the clipboard.

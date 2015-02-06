@@ -10,9 +10,6 @@ class FclipClient : public com::fclip::Fclip_proxy,
 public:
   FclipClient(DBus::Connection &connection) :
     DBus::ObjectProxy(connection, "/com/fclip/Fclip", "com.fclip.Fclip") {}
-    
-private:
-
 };
 
 #endif	/* FCLIPCLIENT_H */

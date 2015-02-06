@@ -9,6 +9,7 @@
     </method>
     <method name="Remove">
       <arg type="as" name="files" direction="in" />
+      <arg type="b" name="removeParent" direction="in" />
       <arg type="as" name="messages" direction="out" />
       <arg type="b" name="success" direction="out" />
     </method>

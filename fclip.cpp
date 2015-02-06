@@ -13,8 +13,13 @@ using namespace std;
 namespace po = boost::program_options;
 
 
+// global options:
 bool oVerbose;
+// "add" options:
 bool oNonRecursive;
+// "remove" options:
+bool oRemoveParents;
+
 
 DBus::BusDispatcher dispatcher;
 
@@ -33,7 +38,10 @@ po::options_description add_options(){
 }
 
 po::options_description remove_options(){
-  return po::options_description();
+  po::options_description options("Options");
+  options.add_options()
+          ("parents,p", po::bool_switch(&oRemoveParents), "remove parent directories if empty");
+  return move(options);
 }
 
 po::options_description list_options(){
@@ -64,7 +72,12 @@ bool help_run(const vector<string> &argv){
       cout << "usage: fclip add [<options>] <files>..." << endl << endl;
       cout << "Adds a file to the clipboard." << endl << endl;
       cout << add_options() << endl;
-    }
+    }else if(cmd == "remove"){
+      cout << "usage: fclip remove [<options>] <files>..." << endl;
+      cout << "alias: rm" << endl;
+      cout << "Remove a file from the clipboard." << endl << endl;
+      cout << add_options() << endl;
+    }else return false;
     return true;
   }
   return false;
@@ -140,7 +153,7 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
     }
     
     bool success;
-    fclip.Remove(files, serverMessages, success);
+    fclip.Remove(files, oRemoveParents, serverMessages, success);
     return success;
   }else{
     throw runtime_error("no files specified");
@@ -188,7 +201,6 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
 string expandCommand(string cmd){
   if(cmd == "rm") return "remove";
   if(cmd == "ls") return "list";
-  if(cmd == "ls-all") return "list-all";
   return cmd;
 }
 
