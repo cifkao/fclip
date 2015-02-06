@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iterator>
 #include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 
 namespace file_functions {
   /**

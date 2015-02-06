@@ -2,6 +2,7 @@
 #include <vector>
 #include <cstddef>
 #include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 #include "file_functions.h"
 #include "Directory.h"
 #include "File.h"

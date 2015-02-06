@@ -1,12 +1,12 @@
 RM=rm -f
-CXX=g++
+CXX=g++ -ggdb
 CXXFLAGS=-std=c++11 `pkg-config dbus-c++-1 --cflags`
-LDLIBS=`pkg-config dbus-c++-1 --libs` -lboost_filesystem -lboost_system
+LDLIBS=`pkg-config dbus-c++-1 --libs`
 
 all: fclipd fclip
 
 fclipd: fclipd.o FclipServer.o Clipboard.o Directory.o File.o file_functions.o
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lboost_filesystem -lboost_system
 
 fclipd.o: fclipd.cpp FclipServer.h Fclip_adaptor.h
 
@@ -22,8 +22,8 @@ Fclip_adaptor.h: dbus-service.xml
 	dbusxx-xml2cpp $< --adaptor=$@
 	
 	
-fclip: fclip.o
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+fclip: fclip.o file_functions.o
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS) -lboost_program_options -lboost_system -lboost_filesystem
 
 FclipClient.o: FclipClient.h Fclip_proxy.h
 	

@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <boost/filesystem.hpp>
+#include <boost/system/error_code.hpp>
 #include "file_functions.h"
 
 using namespace std;
