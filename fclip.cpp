@@ -1,9 +1,17 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <fstream>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <utility>
 #include <boost/program_options.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <dbus-c++/dbus.h>
 #include "file_functions.h"
 
@@ -231,7 +239,65 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
     for(auto const &f : files){
       cout << f << endl;
     }
+    return true;
   }else return false;
+}
+
+typedef pair<string,bool> file;
+
+void forEachWorker(const vector<string> &commands, queue<file> &qu,
+        mutex &qLock, const bool &done, condition_variable &cv){
+  namespace fs = boost::filesystem;
+  while(true){
+    fs::path path;
+    bool recursive;
+    {
+      unique_lock<mutex> lk(qLock);
+      if(qu.empty()){
+        if(done) break;
+        cv.wait(lk);
+        continue;
+      }
+
+      path = qu.front().first;
+      recursive = qu.front().second;
+      qu.pop();
+    }
+    
+    // now we do the actual work
+    
+    // get file type
+    boost::system::error_code ec;
+    fs::file_status fstatus = fs::symlink_status(path, ec);
+    if(ec.value() != boost::system::errc::success){
+      cerr << "cannot access " << path << ": " << ec.message() << endl;
+      continue;
+    }
+    
+    // iterate over directory contents recursively
+    if(fs::is_directory(fstatus)){
+      fs::recursive_directory_iterator it(path);
+      fs::recursive_directory_iterator end;
+      
+      while(it != end){
+        cout << (*it).path().string() << endl;
+        
+        if(fs::is_directory(*it) && fs::is_symlink(*it))
+          it.no_push();
+        
+        try{ ++it; }
+        catch(exception& ex){
+          cerr << "cannot access contents of " << (*it).path().string() << endl;
+          it.no_push();
+          try{ ++it; }
+          catch(exception& ex2){
+            cerr << ex2.what() << endl;
+            it.pop();
+          }
+        }
+      }
+    }
+  }
 }
 
 bool forEach_run(const vector<string> &argv, FclipClient &fclip){
@@ -247,21 +313,67 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
             .run(), vm);
   po::notify(vm);
   
-  string fifoPath;
+  vector<string> commands;
+  if(vm.count("command"))
+    commands = vm["command"].as<vector<string> >();
+  
+  string pipePath;
   {
     namespace fs = boost::filesystem;
-    fs::path fifoPath_ = fs::temp_directory_path() / fs::unique_path();
-    fifoPath = fifoPath_.string();
+    fs::path pipePath_ = fs::temp_directory_path() / fs::unique_path();
+    pipePath = pipePath_.string();
   }
   
+  if(mkfifo(pipePath.c_str(), S_IFIFO | 0666) != 0)
+    throw runtime_error("cannot create fifo");
   
+  fclip.ListFilesToStream("", true, pipePath);
   
-  if(vm.count("command")){
-    vector<string> commands = vm["command"].as<vector<string> >();
-    for(auto cmd : commands){
-      system(cmd.c_str());
+  queue<file> qu;
+  mutex qLock;
+  bool done = false;
+  condition_variable cv;
+  thread worker(forEachWorker, ref(commands), ref(qu), ref(qLock), ref(done), ref(cv));
+  
+  try{
+    ifstream pipe(pipePath, ios_base::in);
+
+    // read paths from pipe
+    string line;
+    while (std::getline(pipe, line)){
+      std::istringstream iss(line);
+      bool recursive; size_t length;
+      if(!(iss >> recursive >> length))
+        throw runtime_error("invalid data received from server");
+
+      char *c_str = new char[length];
+      pipe.read(c_str, length);
+      pipe.get(); // read the newline character
+      string str(c_str, length);
+
+      if(str.length() != length)
+        throw runtime_error("invalid data received from server");
+      
+      {
+        // push path to queue and wake up worker
+        unique_lock<mutex> lk(qLock);
+        qu.push(make_pair(str, recursive));
+        cv.notify_all();
+      }
     }
+    boost::filesystem::remove(pipePath);
+  }catch(...){
+    boost::filesystem::remove(pipePath);
+    throw;
   }
+  
+  {
+    // notify worker that no more paths will be added to the queue
+    unique_lock<mutex> lk(qLock);
+    done = true;
+    cv.notify_all();
+  }
+  worker.join();
   
   return true;
 }

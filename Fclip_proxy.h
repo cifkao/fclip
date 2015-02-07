@@ -67,7 +67,7 @@ public:
         ::DBus::Message ret = invoke_method (call);
     }
 
-    void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream, std::vector< std::string >& messages, bool& success)
+    void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream)
     {
         ::DBus::CallMessage call;
         ::DBus::MessageIter wi = call.writer();
@@ -76,11 +76,7 @@ public:
         wi << absolute;
         wi << stream;
         call.member("ListFilesToStream");
-        ::DBus::Message ret = invoke_method (call);
-        ::DBus::MessageIter ri = ret.reader();
-
-        ri >> messages;
-        ri >> success;
+        assert (invoke_method_noreply (call));
     }
 
     void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success)

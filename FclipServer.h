@@ -32,9 +32,7 @@ public:
   
   virtual void ListFilesToStream(const std::string& directory,
     const bool& absolute,
-    const std::string& stream,
-    std::vector< std::string >& messages,
-    bool& success);
+    const std::string& stream);
   
   virtual void DirectoryListing(const std::string& directory,
     std::vector< std::string >& files,

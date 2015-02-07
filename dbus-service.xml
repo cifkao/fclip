@@ -18,8 +18,7 @@
       <arg type="s" name="directory" direction="in" />
       <arg type="b" name="absolute" direction="in" />
       <arg type="s" name="stream" direction="in" />
-      <arg type="as" name="messages" direction="out" />
-      <arg type="b" name="success" direction="out" />
+      <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
     </method>
     <method name="DirectoryListing">
       <arg type="s" name="directory" direction="in" />

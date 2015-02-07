@@ -60,8 +60,6 @@ public:
             { "directory", "s", true },
             { "absolute", "b", true },
             { "stream", "s", true },
-            { "messages", "as", false },
-            { "success", "b", false },
             { 0, 0, 0 }
         };
         static ::DBus::IntrospectedArgument DirectoryListing_args[] = 
@@ -153,7 +151,7 @@ public:
     virtual void Add(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Remove(const std::vector< std::string >& files, const bool& removeParent, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Clear() = 0;
-    virtual void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream) = 0;
     virtual void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
     virtual std::string LowestCommonAncestor() = 0;
     virtual void Stash(std::vector< std::string >& messages, bool& success) = 0;
@@ -216,13 +214,8 @@ private:
         std::string argin1; ri >> argin1;
         bool argin2; ri >> argin2;
         std::string argin3; ri >> argin3;
-        std::vector< std::string > argout1;
-        bool argout2;
-        ListFilesToStream(argin1, argin2, argin3, argout1, argout2);
+        ListFilesToStream(argin1, argin2, argin3);
         ::DBus::ReturnMessage reply(call);
-        ::DBus::MessageIter wi = reply.writer();
-        wi << argout1;
-        wi << argout2;
         return reply;
     }
     ::DBus::Message _DirectoryListing_stub(const ::DBus::CallMessage &call)
