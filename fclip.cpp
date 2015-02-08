@@ -58,6 +58,14 @@ DBus::BusDispatcher dispatcher;
 
 vector<string> serverMessages;
 
+ostream &msg(){
+  return cout << "fclip: ";
+}
+
+ostream &err(){
+  return cerr << "fclip: ";
+}
+
 string expandCommand(string cmd){
   if(cmd == "rm") return "remove";
   if(cmd == "ls") return "list";
@@ -168,7 +176,7 @@ bool add_run(const vector<string> &argv, FclipClient &fclip){
       boost::system::error_code ec;
       string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
       if(ec.value() != boost::system::errc::success){
-        cerr << "Cannot access " << *it << ": " << ec.message() << endl;
+        err() << "cannot access " << *it << ": " << ec.message() << endl;
         it = files.erase(it);
         if(it == files.end()) break;
       }else{
@@ -204,7 +212,7 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
       boost::system::error_code ec;
       string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
       if(ec.value() != boost::system::errc::success){
-        cerr << "Cannot access " << *it << ": " << ec.message() << endl;
+        err() << "cannot access " << *it << ": " << ec.message() << endl;
         it = files.erase(it);
         if(it == files.end()) break;
       }else{
@@ -268,7 +276,7 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
     if(!oLinks && fs::is_symlink(fstatus)) return;
   }
   
-  if(oForEachPrint)
+  if(oForEachPrint || oVerbose)
     cout << path.string() << endl;
 
   for(string cmd : commands){
@@ -287,7 +295,7 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
       if(baseDir != ""){
         workDirFd = open(".", O_RDONLY);
         if(chdir(baseDir.c_str()) != 0){
-          cerr << "cannot chdir to " << baseDir << endl;
+          err() << "cannot chdir to " << baseDir << endl;
           return;
         }
       }
@@ -300,7 +308,7 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
         }
         pclose(output);
       }else{
-        cerr << "error executing " << cmd << endl;
+        err() << "error executing " << cmd << endl;
       }
       
       if(baseDir != ""){
@@ -335,7 +343,7 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
     boost::system::error_code ec;
     fs::file_status fstatus = fs::symlink_status(baseDir / path, ec);
     if(ec.value() != boost::system::errc::success){
-      cerr << "cannot access " << path.string() << ": " << ec.message() << endl;
+      err() << "cannot access " << path.string() << ": " << ec.message() << endl;
       continue;
     }
     
@@ -354,7 +362,7 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
           if(ec.value() == boost::system::errc::success){
             forEachDoActions(path, fstatus, baseDir, commands);
           }else{
-            cerr << "cannot access " << path.string() << ": " << ec.message() << endl;
+            err() << "cannot access " << path.string() << ": " << ec.message() << endl;
           }
 
           // don't follow symlinks
@@ -363,17 +371,17 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
 
           try{ ++it; }
           catch(exception& ex){
-            cerr << "cannot access contents of " << (*it).path().string() << endl;
+            err() << "cannot access contents of " << (*it).path().string() << endl;
             it.no_push();
             try{ ++it; }
             catch(exception& ex2){
-              cerr << ex2.what() << endl;
+              err() << ex2.what() << endl;
               it.pop();
             }
           }
         }
       }catch(exception& ex){
-        cerr << "cannot access contents of " << baseDir / path << endl;
+        err() << "cannot access contents of " << baseDir / path << endl;
       }
     }
   }
@@ -498,22 +506,25 @@ bool stash_run(const vector<string> &argv, FclipClient &fclip){
   
   bool success = true;
   if(action == "push"){
+    if(vm.count("id"))
+      throw runtime_error("stash push doesn't accept parameters");
+    
     fclip.Stash(serverMessages, success);
     if(success){
       vector<string> list = fclip.ListStash();
       if(list.size()>0)
-        cout << "stashed " << list[0] << " as #0" << endl;
+        msg() << "stashed " << list[0] << " as #0" << endl;
     }
   }else if(action == "pop"){
     vector<string> list = fclip.ListStash();
     fclip.Unstash(id, serverMessages, success);
     if(success && list.size()>0)
-      cout << "unstashed " << list[0] << " (#" << id << ")" << endl;
+      msg() << "unstashed " << list[0] << " (#" << id << ")" << endl;
   }else if(action == "drop"){
     vector<string> list = fclip.ListStash();
     fclip.DropStash(id, serverMessages, success);
     if(success && list.size()>0)
-      cout << "dropped " << list[0] << " (#" << id << ")" << endl;
+      msg() << "dropped " << list[0] << " (#" << id << ")" << endl;
   }else if(action == "list"){
     vector<string> list = fclip.ListStash();
     for(size_t i=0; i<list.size(); ++i){
@@ -608,14 +619,14 @@ int main(int argc, char** argv) {
       (*it).second.action(subargs, fclip);
 
       for(const string &str : serverMessages){
-        cerr << str << endl;
+        err() << str << endl;
       }
     }catch(const DBus::Error &e){
-      cerr << "failed to connect to fclip server" << endl;
+      err() << "failed to connect to fclip server" << endl;
       return EXIT_FAILURE;
     }
   }catch(const exception &e){
-    cerr << e.what() << endl;
+    err() << e.what() << endl;
     return EXIT_FAILURE;
   }
   

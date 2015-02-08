@@ -28,7 +28,7 @@ bool Clipboard::add(const string &filename, bool recursive, vector<string> &mess
   }
   
   if(ec.value() != boost::system::errc::success){
-    messages.push_back("Cannot access " + filename + ": " + ec.message());
+    messages.push_back("cannot access " + filename + ": " + ec.message());
     return false;
   }
   
@@ -89,7 +89,7 @@ bool Clipboard::remove(const string &filename, bool removeParent, vector<string>
   boost::system::error_code ec;
   fs::path path = file_functions::getCanonicalPathToSymlink(filename, ec);
   if(ec.value() != boost::system::errc::success){
-    messages.push_back("Cannot access " + filename + ": " + ec.message());
+    messages.push_back("cannot access " + filename + ": " + ec.message());
     return false;
   }
   
@@ -108,7 +108,7 @@ bool Clipboard::remove(const string &filename, bool removeParent, vector<string>
       // remove the one we want to remove
       fs::directory_iterator dirIt(currentPath, ec);
       if(ec.value() != boost::system::errc::success){
-        messages.push_back("Cannot access " + currentPath.string() + ": " + ec.message());
+        messages.push_back("cannot access " + currentPath.string() + ": " + ec.message());
         return false;
       }
       currentDir->recursive(false);
@@ -157,7 +157,7 @@ bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
   boost::system::error_code ec;
   fs::path path = fs::canonical(_path, ec);
   if(ec.value() != boost::system::errc::success){
-    messages.push_back("Cannot access " + _path.string() + ": " + ec.message());
+    messages.push_back("cannot access " + _path.string() + ": " + ec.message());
     return false;
   }
   
@@ -176,7 +176,7 @@ bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
       if(fs::is_directory(path, ec) && ec.value() == boost::system::errc::success){
         fs::directory_iterator it(path, ec), eod;
         if(ec.value() != boost::system::errc::success){
-          messages.push_back("Cannot access " + path.string() + ": " + ec.message());
+          messages.push_back("cannot access " + path.string() + ": " + ec.message());
           return false;
         }
         // push filenames
@@ -195,7 +195,7 @@ bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
 
 bool Clipboard::stash(std::vector<std::string> &messages){
   if(tree_->empty()){
-    messages.push_back("Nothing to stash");
+    messages.push_back("nothing to stash");
     return false;
   }
   stash_.push_front(move(tree_));
@@ -205,11 +205,11 @@ bool Clipboard::stash(std::vector<std::string> &messages){
   
 bool Clipboard::unstash(vector<string> &messages){
   if(!tree_->empty()){
-    messages.push_back("Cannot unstash: clipboard is not empty");
+    messages.push_back("cannot unstash: clipboard is not empty");
     return false;
   }
   if(stash_.empty()){
-    messages.push_back("Cannot unstash: no stash found");
+    messages.push_back("cannot unstash: no stash found");
     return false;
   }
   tree_ = move(stash_.front());
@@ -222,11 +222,11 @@ bool Clipboard::unstash(size_t stashId, vector<string> &messages){
     return unstash(messages);
   
   if(!tree_->empty()){
-    messages.push_back("Cannot unstash: clipboard is not empty");
+    messages.push_back("cannot unstash: clipboard is not empty");
     return false;
   }
   if(stash_.size()<stashId+1){
-    messages.push_back("Cannot unstash: no stash #" + to_string(stashId));
+    messages.push_back("cannot unstash: no stash #" + to_string(stashId));
     return false;
   }
   tree_ = move(stash_[stashId]);
@@ -244,7 +244,7 @@ vector<string> Clipboard::listStash(){
 
 bool Clipboard::dropStash(vector<string> &messages){
   if(stash_.empty()){
-    messages.push_back("Cannot drop stash: no stash found");
+    messages.push_back("cannot drop stash: no stash found");
     return false;
   }
   stash_.pop_front();
@@ -253,7 +253,7 @@ bool Clipboard::dropStash(vector<string> &messages){
   
 bool Clipboard::dropStash(size_t stashId, vector<string> &messages){
   if(stash_.size()<stashId+1){
-    messages.push_back("Cannot drop stash #" + to_string(stashId) + ": no such stash");
+    messages.push_back("cannot drop stash #" + to_string(stashId) + ": no such stash");
     return false;
   }
   stash_.erase(stash_.begin() + stashId);
