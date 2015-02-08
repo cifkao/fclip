@@ -15,6 +15,11 @@ namespace file_functions {
    */
   boost::filesystem::path getCanonicalPathToSymlink(const boost::filesystem::path &p, boost::system::error_code &ec);
   
+  /**
+   * Convert a path to a relative path with respect to its prefix.
+   */
+  boost::filesystem::path removePathPrefix(const boost::filesystem::path &p, const boost::filesystem::path &prefix);
+  
 }
 
 #endif	/* FILE_FUNCTIONS_H */

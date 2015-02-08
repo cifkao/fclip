@@ -1,6 +1,6 @@
 RM=rm -f
-CXX=g++ -ggdb
-CXXFLAGS=-std=c++11 `pkg-config dbus-c++-1 --cflags`
+CXX=g++ -g
+CXXFLAGS=-std=c++11 -ggdb `pkg-config dbus-c++-1 --cflags`
 LDLIBS=`pkg-config dbus-c++-1 --libs`
 
 all: fclipd fclip

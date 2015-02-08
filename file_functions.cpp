@@ -22,4 +22,16 @@ namespace file_functions {
       return fs::canonical(p, ec);
   }
   
+  fs::path removePathPrefix(const fs::path &path, const fs::path &prefix){
+    fs::path result("");
+    auto it = path.begin();
+    for(auto const &p : prefix){
+      ++it;
+    }
+    for(; it != path.end(); ++it){
+      result /= *it;
+    }
+    return result;
+  }
+  
 }

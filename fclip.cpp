@@ -7,11 +7,14 @@
 #include <mutex>
 #include <condition_variable>
 #include <utility>
+#include <cstdio>
 #include <boost/program_options.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <dbus-c++/dbus.h>
 #include "file_functions.h"
 
@@ -19,7 +22,7 @@
 
 using namespace std;
 namespace po = boost::program_options;
-
+namespace fs = boost::filesystem;
 
 // global options:
 bool oVerbose;
@@ -29,6 +32,7 @@ bool oNonRecursive;
 bool oRemoveParents;
 // "for-each" options:
 bool oForEachRemove;
+bool oForEachPrint;
 
 
 DBus::BusDispatcher dispatcher;
@@ -74,7 +78,11 @@ po::options_description list_options(){
 }
 
 po::options_description forEach_options(){
-  return po::options_description();
+  po::options_description options("Options");
+  options.add_options()
+          ("exec,c", po::value<vector<string> >(), "execute the given command for each file")
+          ("print,p", po::bool_switch(&oForEachPrint), "write all paths to output");
+  return move(options);
 }
 
 void help_run(const vector<string> &argv){
@@ -107,9 +115,12 @@ void help_run(const vector<string> &argv){
       cout << "Remove one or more files from the clipboard." << endl << endl;
       cout << remove_options() << endl;
     }else if(cmd == "for-each"){
-      cout << "usage: fclip for-each <commands>..." << endl;
+      cout << "usage: fclip for-each [<base-dir>] [<options>]" << endl;
       cout << "aliases: foreach, each" << endl << endl;
-      cout << "Perform actions for each file in the clipboard." << endl << endl;
+      cout << setw(80) <<
+              "Perform actions for each file in the clipboard.\n"
+              "If a base-dir is specified, only files in that directory\n"
+              "will be processed." << endl << endl;
       cout << forEach_options() << endl;
     }else goto generalHelp;
     return;
@@ -223,7 +234,6 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
   }
   
   {
-    namespace fs = boost::filesystem;
     boost::system::error_code ec;
     fs::path path_ = fs::canonical(path, ec);
     if(ec.value() != boost::system::errc::success){
@@ -245,9 +255,52 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
 
 typedef pair<string,bool> file;
 
-void forEachWorker(const vector<string> &commands, queue<file> &qu,
-        mutex &qLock, const bool &done, condition_variable &cv){
-  namespace fs = boost::filesystem;
+void forEachDoActions(const fs::path &path, const string &baseDir,
+        const vector<string> &commands){
+  if(oForEachPrint)
+    cout << path.string() << endl;
+
+  for(string cmd : commands){
+    // replace {} with path
+    {
+      string braces("{}");
+      size_t pos = 0;
+      while((pos = cmd.find(braces, pos)) != string::npos){
+        cmd.replace(pos, braces.length(), path.string());
+      }
+    }
+
+    // execute command
+    {
+      int workDirFd;
+      if(baseDir != ""){
+        workDirFd = open(".", O_RDONLY);
+        if(chdir(baseDir.c_str()) != 0){
+          cerr << "cannot chdir to " << baseDir << endl;
+          return;
+        }
+      }
+      
+      FILE *output = popen(cmd.c_str(), "r");
+      if(output){
+        char buf[512]; size_t count;
+        while(count = fread(buf, 1, sizeof(buf), output)){
+          cout.write(buf, count);
+        }
+        pclose(output);
+      }else{
+        cerr << "error executing " << cmd << endl;
+      }
+      
+      if(baseDir != ""){
+        fchdir(workDirFd);
+      }
+    }
+  }
+}
+
+void forEachWorker(const string &baseDir, const vector<string> &commands,
+        queue<file> &qu, mutex &qLock, const bool &done, condition_variable &cv){
   while(true){
     fs::path path;
     bool recursive;
@@ -264,48 +317,58 @@ void forEachWorker(const vector<string> &commands, queue<file> &qu,
       qu.pop();
     }
     
-    // now we do the actual work
+    // now do the actual work
     
     // get file type
     boost::system::error_code ec;
-    fs::file_status fstatus = fs::symlink_status(path, ec);
+    fs::file_status fstatus = fs::symlink_status(baseDir / path, ec);
     if(ec.value() != boost::system::errc::success){
-      cerr << "cannot access " << path << ": " << ec.message() << endl;
+      cerr << "cannot access " << path.string() << ": " << ec.message() << endl;
       continue;
     }
     
+    forEachDoActions(path, baseDir, commands);
+    
     // iterate over directory contents recursively
-    if(fs::is_directory(fstatus)){
-      fs::recursive_directory_iterator it(path);
-      fs::recursive_directory_iterator end;
-      
-      while(it != end){
-        cout << (*it).path().string() << endl;
-        
-        if(fs::is_directory(*it) && fs::is_symlink(*it))
-          it.no_push();
-        
-        try{ ++it; }
-        catch(exception& ex){
-          cerr << "cannot access contents of " << (*it).path().string() << endl;
-          it.no_push();
+    if(recursive && fs::is_directory(fstatus)){
+      try{
+        fs::recursive_directory_iterator it(baseDir / path);
+        fs::recursive_directory_iterator end;
+
+        while(it != end){
+          fs::path path = file_functions::removePathPrefix((*it).path(), baseDir);
+
+          forEachDoActions(path, baseDir, commands);
+
+          // don't follow symlinks
+          if(fs::is_directory(*it) && fs::is_symlink(*it))
+            it.no_push();
+
           try{ ++it; }
-          catch(exception& ex2){
-            cerr << ex2.what() << endl;
-            it.pop();
+          catch(exception& ex){
+            cerr << "cannot access contents of " << (*it).path().string() << endl;
+            it.no_push();
+            try{ ++it; }
+            catch(exception& ex2){
+              cerr << ex2.what() << endl;
+              it.pop();
+            }
           }
         }
+      }catch(exception& ex){
+        cerr << "cannot access contents of " << baseDir / path << endl;
       }
     }
   }
 }
 
 bool forEach_run(const vector<string> &argv, FclipClient &fclip){
-  po::options_description options = list_options();
+  po::options_description options = forEach_options();
   options.add_options()
-          ("command", po::value<vector<string> >());
+          ("base-dir", po::value<string>());
   po::positional_options_description positional;
-  positional.add("command", -1);
+  positional.add("base-dir", 1);
+    
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
             .options(options)
@@ -314,26 +377,36 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
   po::notify(vm);
   
   vector<string> commands;
-  if(vm.count("command"))
-    commands = vm["command"].as<vector<string> >();
+  if(vm.count("exec"))
+    commands = vm["exec"].as<vector<string> >();
+  
+  string baseDir = "";
+  if(vm.count("base-dir")){
+    boost::system::error_code ec;
+    baseDir = vm["base-dir"].as<string>();
+    string baseDir_ = fs::canonical(baseDir, ec).string();
+    if(ec.value() != boost::system::errc::success){
+      throw runtime_error("Cannot access " + baseDir + ": " + ec.message());
+    }
+    baseDir = baseDir_;
+  }
   
   string pipePath;
   {
-    namespace fs = boost::filesystem;
     fs::path pipePath_ = fs::temp_directory_path() / fs::unique_path();
     pipePath = pipePath_.string();
   }
   
   if(mkfifo(pipePath.c_str(), S_IFIFO | 0666) != 0)
-    throw runtime_error("cannot create fifo");
+    throw runtime_error("cannot create named pipe");
   
-  fclip.ListFilesToStream("", true, pipePath);
+  fclip.ListFilesToStream(baseDir, false, pipePath);
   
   queue<file> qu;
   mutex qLock;
   bool done = false;
   condition_variable cv;
-  thread worker(forEachWorker, ref(commands), ref(qu), ref(qLock), ref(done), ref(cv));
+  thread worker(forEachWorker, ref(baseDir), ref(commands), ref(qu), ref(qLock), ref(done), ref(cv));
   
   try{
     ifstream pipe(pipePath, ios_base::in);
@@ -361,9 +434,9 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
         cv.notify_all();
       }
     }
-    boost::filesystem::remove(pipePath);
+    fs::remove(pipePath);
   }catch(...){
-    boost::filesystem::remove(pipePath);
+    fs::remove(pipePath);
     throw;
   }
   

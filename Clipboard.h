@@ -57,11 +57,10 @@ public:
    * @param path an absolute path
    * @param absolute if true, absolute paths will be returned;
    *        if false, all paths will be relative with respect to @c path
-   * @param f a unary function that accepts a string and a bool
-   * @param[out] files the paths of the files in the clipboard
+   * @param fn a binary function that accepts a string and a bool
    */
   template<typename Func>
-  bool forEachFile(const boost::filesystem::path &path, bool absolute, Func f, std::vector<std::string> &messages);
+  bool forEachFile(const boost::filesystem::path &path, bool absolute, Func fn, std::vector<std::string> &messages);
   
   /**
    * Lists all files and directories in a given directory that are in the
@@ -126,9 +125,22 @@ private:
    * @param directory the node of the tree corresponding to @c path
    * @param path a canonical path
    * @param base the path to prepend to all the returned paths
+   * @param fn a binary function that accepts a string and a bool
    */
   template<typename Func>
-  bool forEachFile(const Directory &directory,  const boost::filesystem::path &path, const boost::filesystem::path &base, Func fn, std::vector<std::string> &messages);
+  bool forEachFile(const Directory &directory, const boost::filesystem::path &path, const boost::filesystem::path &base, Func fn, std::vector<std::string> &messages);
+  
+  /**
+   * Same as forEachFile, but only lists files in one directory (non-recursively),
+   * marking all subdirectories as recursive.
+   * @param directory the node of the tree corresponding to @c path
+   * @param path a canonical path
+   * @param absolute if true, absolute paths will be returned;
+   *        if false, all paths will be relative with respect to @c path
+   * @param fn a binary function that accepts a string and a bool
+   */
+  template<typename Func>
+  bool forEachFileInRecursiveDirectory(const Directory &directory, const boost::filesystem::path &path, bool absolute, Func fn, std::vector<std::string> &messages);
   
   /**
    * Returns a path to the lowest common ancestor of all files in the
@@ -141,30 +153,70 @@ private:
 template<typename Func>
 bool Clipboard::forEachFile(const boost::filesystem::path &path_, bool absolute,
         Func fn, std::vector<std::string> &messages){
+  namespace fs = boost::filesystem;
   boost::system::error_code ec;
   boost::filesystem::path path("");
   
   if(path_.string() != ""){
-    path = boost::filesystem::canonical(path_, ec);
+    path = fs::canonical(path_, ec);
     if(ec.value() != boost::system::errc::success){
       messages.push_back("Cannot access " + path_.string() + ": " + ec.message());
       return false;
     }
   }
 
-  boost::filesystem::path currentPath("");
+  // first we need to find the path in the tree
+  fs::path currentPath("");
   Directory *currentDir = tree_.get();
   for(auto it = path.begin(); it != path.end(); ++it){
-    const boost::filesystem::path &p = *it;
+    const fs::path &p = *it;
     Directory::iterator childIt = currentDir->find(p.string());
-    if(childIt==currentDir->end() || !childIt->second->directory())
+    if(childIt==currentDir->end() || !childIt->second->directory()){
+      if(currentDir->recursive()){
+        // the path doesn't exist in the tree, but it is present
+        // implicitly (in a directory with the recursive flag)
+        return forEachFileInRecursiveDirectory(*currentDir, path, absolute, fn, messages);
+      }
       return true;
+    }
     
     currentPath /= p;
     currentDir = static_cast<Directory *>(childIt->second.get());
   }
   
-  return forEachFile(*currentDir, path, absolute ? path : "", fn, messages);
+  if(currentDir->recursive())
+    return forEachFileInRecursiveDirectory(*currentDir, path, absolute, fn, messages);
+  else
+    return forEachFile(*currentDir, path, absolute ? path : "", fn, messages);
+}
+
+template<typename Func>
+bool Clipboard::forEachFileInRecursiveDirectory(const Directory &directory,
+        const boost::filesystem::path &path, bool absolute,
+        Func fn, std::vector<std::string> &messages){
+  namespace fs = boost::filesystem;
+  boost::system::error_code ec;
+  if(fs::is_directory(path, ec) && ec.value() == boost::system::errc::success){
+    fs::directory_iterator it(path, ec), eod;
+    if(ec.value() != boost::system::errc::success){
+      messages.push_back("Cannot access " + path.string() + ": " + ec.message());
+      return false;
+    }
+
+    fs::path base(absolute ? path : "");
+    try{
+      for(; it != eod; ++it){
+        fn((base / (*it).path().filename()).string(), fs::is_directory((*it).path(), ec));
+        if(ec.value() != boost::system::errc::success){
+          messages.push_back("Cannot access " + path.string() + ": " + ec.message());
+        }
+      }
+    }catch(const std::exception &ex){
+      messages.push_back(ex.what());
+      return false;
+    }
+  }
+  return true;
 }
 
 template<typename Func>
