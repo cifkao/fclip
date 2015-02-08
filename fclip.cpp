@@ -29,6 +29,7 @@ namespace fs = boost::filesystem;
 // global options:
 bool oVerbose;
 // semi-global options:
+bool oAbsPaths;
 bool oFiles;
 bool oDirs;
 bool oLinks;
@@ -101,6 +102,7 @@ po::options_description list_options(){
 po::options_description forEach_options(){
   po::options_description options("Options");
   options.add_options()
+          ("absolute,a", po::bool_switch(&oAbsPaths), "force absolute paths")
           ("exec,c", po::value<vector<string> >(), "execute the given command for each file")
           ("print,p", po::bool_switch(&oForEachPrint), "write all paths to output")
           ("files,F", po::bool_switch(&oFiles), "only process regular files")
@@ -359,7 +361,7 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
       continue;
     }
     
-    forEachDoActions(path, fstatus, baseDir, commands);
+    forEachDoActions(oAbsPaths ? baseDir / path : path, fstatus, baseDir, commands);
     
     // iterate over directory contents recursively
     if(recursive && fs::is_directory(fstatus)){
@@ -368,13 +370,16 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
         fs::recursive_directory_iterator end;
 
         while(it != end){
-          fs::path path = file_functions::removePathPrefix((*it).path(), baseDir);
+          fs::path p = (*it).path();
+          if(!oAbsPaths){
+            p = file_functions::removePathPrefix(p, baseDir);
+          }
           
-          fstatus = fs::symlink_status(baseDir / path, ec);
+          fstatus = fs::symlink_status(baseDir / p, ec);
           if(ec.value() == boost::system::errc::success){
-            forEachDoActions(path, fstatus, baseDir, commands);
+            forEachDoActions(p, fstatus, baseDir, commands);
           }else{
-            err() << "cannot access " << path.string() << ": " << ec.message() << endl;
+            err() << "cannot access " << p.string() << ": " << ec.message() << endl;
           }
 
           // don't follow symlinks
