@@ -290,9 +290,11 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
     if(!oLinks && fs::is_symlink(fstatus)) return;
   }
   
-  if(oForEachPrint || oVerbose)
+  if(oForEachPrint)
     cout << path.string() << endl;
 
+  
+  
   for(string cmd : commands){
     // replace {} with path
     {
@@ -302,38 +304,37 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
         cmd.replace(pos, braces.length(), path.string());
       }
     }
+    
+    if(oVerbose)
+      cout << cmd << endl;
 
     // execute command
-    {
-      int workDirFd;
-      if(baseDir != ""){
-        workDirFd = open(".", O_RDONLY);
-        if(chdir(baseDir.c_str()) != 0){
-          err() << "cannot chdir to " << baseDir << endl;
-          return;
-        }
+    FILE *output = popen(cmd.c_str(), "r");
+    if(output){
+      char buf[512]; size_t count;
+      while(count = fread(buf, 1, sizeof(buf), output)){
+        cout.write(buf, count);
       }
-      
-      FILE *output = popen(cmd.c_str(), "r");
-      if(output){
-        char buf[512]; size_t count;
-        while(count = fread(buf, 1, sizeof(buf), output)){
-          cout.write(buf, count);
-        }
-        pclose(output);
-      }else{
-        err() << "error executing " << cmd << endl;
-      }
-      
-      if(baseDir != ""){
-        fchdir(workDirFd);
-      }
+      pclose(output);
+    }else{
+      err() << "error executing " << cmd << endl;
     }
   }
 }
 
 void forEachWorker(const string &baseDir, const vector<string> &commands,
         queue<file> &qu, mutex &qLock, const bool &done, condition_variable &cv){
+  int workDirFd;
+  if(baseDir != ""){
+    if(oVerbose)
+      cout << "cd " << baseDir << endl;
+    workDirFd = open(".", O_RDONLY);
+    if(chdir(baseDir.c_str()) != 0){
+      err() << "cannot chdir to " << baseDir << endl;
+      return;
+    }
+  }
+  
   while(true){
     // get the next file from the queue
     fs::path path;
@@ -401,6 +402,10 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
         err() << "cannot access contents of " << baseDir / path << endl;
       }
     }
+  }
+  
+  if(baseDir != ""){
+    fchdir(workDirFd);
   }
 }
 
