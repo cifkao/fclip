@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <queue>
 #include <unordered_map>
 #include <thread>
@@ -57,7 +58,6 @@ DBus::BusDispatcher dispatcher;
 
 vector<string> serverMessages;
 
-
 string expandCommand(string cmd){
   if(cmd == "rm") return "remove";
   if(cmd == "ls") return "list";
@@ -110,6 +110,10 @@ po::options_description clear_options(){
   return po::options_description();
 }
 
+po::options_description stash_options(){
+  return po::options_description();
+}
+
 void help_run(const vector<string> &argv){
   po::options_description options = help_options();
   options.add_options()
@@ -140,6 +144,7 @@ void help_run(const vector<string> &argv){
   cout << setw(24) << "  list " << "list fclipped files in the current directory" << endl;
   cout << setw(24) << "  help " << "get help about a command" << endl;
   cout << setw(24) << "  remove, rm " << "remove files from the clipboard" << endl;
+  cout << setw(24) << "  stash " << "temporarily save and restore clipboard contents" << endl;
   cout << endl;
   cout << general_options() << endl;
   return;
@@ -471,8 +476,58 @@ bool clear_run(const vector<string> &argv, FclipClient &fclip){
   return true;
 }
 
+bool stash_run(const vector<string> &argv, FclipClient &fclip){
+  size_t id = 0;
+  
+  po::options_description options = stash_options();
+  options.add_options()
+          ("action", po::value<string>())
+          ("id", po::value<size_t>(&id));
+  po::positional_options_description positional;
+  positional.add("action", 1);
+  positional.add("id", 1);
+    
+  po::variables_map vm;
+  po::store(po::command_line_parser(argv)
+          .options(options).positional(positional) .run(), vm);
+  po::notify(vm);
+  
+  string action("push");
+  if(vm.count("action"))
+    action = expandCommand(vm["action"].as<string>());
+  
+  bool success = true;
+  if(action == "push"){
+    fclip.Stash(serverMessages, success);
+    if(success){
+      vector<string> list = fclip.ListStash();
+      if(list.size()>0)
+        cout << "stashed " << list[0] << " as #0" << endl;
+    }
+  }else if(action == "pop"){
+    vector<string> list = fclip.ListStash();
+    fclip.Unstash(id, serverMessages, success);
+    if(success && list.size()>0)
+      cout << "unstashed " << list[0] << " (#" << id << ")" << endl;
+  }else if(action == "drop"){
+    vector<string> list = fclip.ListStash();
+    fclip.DropStash(id, serverMessages, success);
+    if(success && list.size()>0)
+      cout << "dropped " << list[0] << " (#" << id << ")" << endl;
+  }else if(action == "list"){
+    vector<string> list = fclip.ListStash();
+    for(size_t i=0; i<list.size(); ++i){
+      cout << "  #" << i << ": " << list[i] << endl;
+    }
+  }else if(action == "clear"){
+    fclip.ClearStash();
+  }else throw runtime_error("unrecognised command: stash " + action);
+}
+
 int main(int argc, char** argv) {
   bool success = true;
+  
+  ostringstream oss;
   
   commands.emplace("help", Command(nullptr, help_options,
     "usage: fclip help [<command>]\n\n" 
@@ -503,6 +558,16 @@ int main(int argc, char** argv) {
     "alias: rm\n\n"
     "Remove one or more files from the clipboard."
   ));
+  oss.str("");
+  oss << "usage: fclip stash [ push | pop [<id>] | drop [<id>] | list | clear ]\n\n"
+      << "Manipulate the stack of saved clipboard states:\n"
+      << left
+      << setw(24) << "  stash [push]" << "put the current clipboard on the top\n"
+      << setw(24) << "  stash pop [<id>] " << "restore a saved clipboard\n"
+      << setw(24) << "  stash drop [<id>]" << "remove a saved clipboard\n"
+      << setw(24) << "  stash list" << "list all saved clipboards\n"
+      << setw(24) << "  stash clear" << "remove all saved clipboards";
+  commands.emplace("stash", Command(stash_run, stash_options, oss.str()));
   
   
   try{
