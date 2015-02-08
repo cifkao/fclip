@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <queue>
+#include <unordered_map>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -26,6 +27,10 @@ namespace fs = boost::filesystem;
 
 // global options:
 bool oVerbose;
+// semi-global options:
+bool oFiles;
+bool oDirs;
+bool oLinks;
 // "add" options:
 bool oNonRecursive;
 // "remove" options:
@@ -34,6 +39,19 @@ bool oRemoveParents;
 bool oForEachRemove;
 bool oForEachPrint;
 
+
+typedef bool (*action_f)(const vector<string> &, FclipClient &);
+typedef po::options_description (*options_f)();
+
+struct Command {
+  action_f action;
+  options_f options;
+  string usage;
+  Command(action_f action_, options_f options_, string usage_) :
+    action(action_), options(options_), usage(usage_) {}
+};
+
+unordered_map<string,Command> commands;
 
 DBus::BusDispatcher dispatcher;
 
@@ -81,8 +99,15 @@ po::options_description forEach_options(){
   po::options_description options("Options");
   options.add_options()
           ("exec,c", po::value<vector<string> >(), "execute the given command for each file")
-          ("print,p", po::bool_switch(&oForEachPrint), "write all paths to output");
+          ("print,p", po::bool_switch(&oForEachPrint), "write all paths to output")
+          ("files,F", po::bool_switch(&oFiles), "only process regular files")
+          ("dirs,D", po::bool_switch(&oDirs), "only process directories")
+          ("links,L", po::bool_switch(&oLinks), "only process symlinks");
   return move(options);
+}
+
+po::options_description clear_options(){
+  return po::options_description();
 }
 
 void help_run(const vector<string> &argv){
@@ -93,51 +118,32 @@ void help_run(const vector<string> &argv){
   positional.add("command", 1);
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
-            .options(options)
-            .positional(positional)
-            .allow_unregistered()
-            .run(), vm);
+          .options(options).positional(positional).allow_unregistered().run(), vm);
   po::notify(vm);
   
   if(vm.count("command")){
     const string &cmd = expandCommand(vm["command"].as<string>());
-    if(cmd == "help"){
-      cout << "usage: fclip help [<command>]" << endl << endl;
-      cout << "Display help information about a command." << endl;
-      cout << help_options() << endl;
-    }else if(cmd == "add"){
-      cout << "usage: fclip add [<options>] <files>..." << endl << endl;
-      cout << "Add one or more files to the clipboard." << endl << endl;
-      cout << add_options() << endl;
-    }else if(cmd == "remove"){
-      cout << "usage: fclip remove [<options>] <files>..." << endl;
-      cout << "alias: rm" << endl << endl;
-      cout << "Remove one or more files from the clipboard." << endl << endl;
-      cout << remove_options() << endl;
-    }else if(cmd == "for-each"){
-      cout << "usage: fclip for-each [<base-dir>] [<options>]" << endl;
-      cout << "aliases: foreach, each" << endl << endl;
-      cout << setw(80) <<
-              "Perform actions for each file in the clipboard.\n"
-              "If a base-dir is specified, only files in that directory\n"
-              "will be processed." << endl << endl;
-      cout << forEach_options() << endl;
-    }else goto generalHelp;
-    return;
+    auto it = commands.find(cmd);
+    if(it != commands.end()){
+      cout << (*it).second.usage << endl << endl;
+      cout << (*it).second.options() << endl;
+      return;
+    }
   }
   
-  generalHelp:
   cout << "usage: fclip [<options>] <command> [<command-options>]" << endl << endl;
   cout << "Commands:" << endl;
   cout << left;
   cout << setw(24) << "  add " << "add files to the clipboard" << endl;
+  cout << setw(24) << "  clear " << "clear the clipboard" << endl;
   cout << setw(24) << "  foreach, each " << "perform actions for each file in the clipboard" << endl;
+  cout << setw(24) << "  list " << "list fclipped files in the current directory" << endl;
   cout << setw(24) << "  help " << "get help about a command" << endl;
   cout << setw(24) << "  remove, rm " << "remove files from the clipboard" << endl;
   cout << endl;
   cout << general_options() << endl;
+  return;
 }
-
 
 bool add_run(const vector<string> &argv, FclipClient &fclip){
   po::options_description options = add_options();
@@ -147,9 +153,7 @@ bool add_run(const vector<string> &argv, FclipClient &fclip){
   positional.add("file", -1);
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
-            .options(options)
-            .positional(positional)
-            .run(), vm);
+          .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
   if(vm.count("file")){
@@ -185,9 +189,7 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
   positional.add("file", -1);
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
-            .options(options)
-            .positional(positional)
-            .run(), vm);
+          .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
   if(vm.count("file")){
@@ -223,9 +225,7 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
   positional.add("path", 1);
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
-            .options(options)
-            .positional(positional)
-            .run(), vm);
+          .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
   string path = ".";
@@ -255,8 +255,14 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
 
 typedef pair<string,bool> file;
 
-void forEachDoActions(const fs::path &path, const string &baseDir,
-        const vector<string> &commands){
+void forEachDoActions(const fs::path &path, fs::file_status fstatus,
+        const string &baseDir, const vector<string> &commands){
+  if(oFiles || oDirs || oLinks){ // type specified
+    if(!oFiles && fs::is_regular_file(fstatus)) return;
+    if(!oDirs  && fs::is_directory(fstatus)) return;
+    if(!oLinks && fs::is_symlink(fstatus)) return;
+  }
+  
   if(oForEachPrint)
     cout << path.string() << endl;
 
@@ -302,6 +308,7 @@ void forEachDoActions(const fs::path &path, const string &baseDir,
 void forEachWorker(const string &baseDir, const vector<string> &commands,
         queue<file> &qu, mutex &qLock, const bool &done, condition_variable &cv){
   while(true){
+    // get the next file from the queue
     fs::path path;
     bool recursive;
     {
@@ -327,7 +334,7 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
       continue;
     }
     
-    forEachDoActions(path, baseDir, commands);
+    forEachDoActions(path, fstatus, baseDir, commands);
     
     // iterate over directory contents recursively
     if(recursive && fs::is_directory(fstatus)){
@@ -337,8 +344,13 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
 
         while(it != end){
           fs::path path = file_functions::removePathPrefix((*it).path(), baseDir);
-
-          forEachDoActions(path, baseDir, commands);
+          
+          fstatus = fs::symlink_status(baseDir / path, ec);
+          if(ec.value() == boost::system::errc::success){
+            forEachDoActions(path, fstatus, baseDir, commands);
+          }else{
+            cerr << "cannot access " << path.string() << ": " << ec.message() << endl;
+          }
 
           // don't follow symlinks
           if(fs::is_directory(*it) && fs::is_symlink(*it))
@@ -371,9 +383,7 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
     
   po::variables_map vm;
   po::store(po::command_line_parser(argv)
-            .options(options)
-            .positional(positional)
-            .run(), vm);
+          .options(options).positional(positional) .run(), vm);
   po::notify(vm);
   
   vector<string> commands;
@@ -451,16 +461,55 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
   return true;
 }
 
+bool clear_run(const vector<string> &argv, FclipClient &fclip){
+  po::options_description options = forEach_options();
+  po::variables_map vm;
+  po::store(po::command_line_parser(argv).options(options).run(), vm);
+  po::notify(vm);
+  
+  fclip.Clear();
+  return true;
+}
+
 int main(int argc, char** argv) {
   bool success = true;
+  
+  commands.emplace("help", Command(nullptr, help_options,
+    "usage: fclip help [<command>]\n\n" 
+    "Display help information about a command."
+  ));
+  commands.emplace("add", Command(add_run, add_options,
+    "usage: fclip add [<options>] <files>...\n\n"
+    "Add one or more files to the clipboard."
+  ));
+  commands.emplace("clear", Command(clear_run, clear_options,
+    "usage: fclip clear\n\n"
+    "Remove all files from the clipboard."
+  ));
+  commands.emplace("for-each", Command(forEach_run, forEach_options,
+    "usage: fclip for-each [<base-dir>] [<options>]\n"
+    "aliases: foreach, each\n\n"
+    "Perform actions for each file in the clipboard.\n"
+    "If a base-dir is specified, only files in that directory\n"
+    "will be processed."
+  ));
+  commands.emplace("list", Command(list_run, list_options,
+    "usage: fclip list <files>...\n"
+    "alias: ls\n\n"
+    "List all files from the current directory that are in the clipboard."
+  ));
+  commands.emplace("remove", Command(remove_run, remove_options,
+    "usage: fclip remove [<options>] <files>...\n"
+    "alias: rm\n\n"
+    "Remove one or more files from the clipboard."
+  ));
+  
   
   try{
     po::options_description options = general_options();
     po::variables_map vm;
     po::parsed_options parsed = po::command_line_parser(argc, argv)
-              .options(options)
-              .allow_unregistered()
-              .run();
+            .options(options).allow_unregistered().run();
     po::store(parsed, vm);
     po::notify(vm);
   
@@ -487,17 +536,11 @@ int main(int argc, char** argv) {
       DBus::Connection bus = DBus::Connection::SessionBus();
       FclipClient fclip(bus);
 
-      if(cmd == "add"){
-        success = success && add_run(subargs, fclip);
-      }else if(cmd == "remove"){
-        success = success && remove_run(subargs, fclip);
-      }else if(cmd == "list"){
-        success = success && list_run(subargs, fclip);
-      }else if(cmd == "for-each"){
-        success = success && forEach_run(subargs, fclip);
-      }else{
+      auto it = commands.find(cmd);
+      if(it == commands.end()){
         throw runtime_error("unrecognised command or option '" + cmd + "'");
       }
+      (*it).second.action(subargs, fclip);
 
       for(const string &str : serverMessages){
         cerr << str << endl;
