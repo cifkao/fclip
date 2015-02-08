@@ -34,8 +34,6 @@ bool oDirs;
 bool oLinks;
 // "add" options:
 bool oNonRecursive;
-// "remove" options:
-bool oRemoveParents;
 // "for-each" options:
 bool oForEachRemove;
 bool oForEachPrint;
@@ -93,10 +91,7 @@ po::options_description add_options(){
 }
 
 po::options_description remove_options(){
-  po::options_description options("Options");
-  options.add_options()
-          ("parents,p", po::bool_switch(&oRemoveParents), "remove parent directories if empty");
-  return move(options);
+  return po::options_description();
 }
 
 po::options_description list_options(){
@@ -169,29 +164,35 @@ bool add_run(const vector<string> &argv, FclipClient &fclip){
           .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
+  vector<string> files;
   if(vm.count("file")){
-    vector<string> files = vm["file"].as<vector<string> >();
-    // make file paths canonical
-    for(auto it = files.begin(); it != files.end(); ++it){
-      boost::system::error_code ec;
-      string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
-      if(ec.value() != boost::system::errc::success){
-        err() << "cannot access " << *it << ": " << ec.message() << endl;
-        it = files.erase(it);
-        if(it == files.end()) break;
-      }else{
-        *it = move(path);
-        if(oVerbose)
-          cout << *it << endl;
-      }
-    }
-    
-    bool success;
-    fclip.Add(files, !oNonRecursive, serverMessages, success);
-    return success;
+    files = vm["file"].as<vector<string> >();
   }else{
-    throw runtime_error("no files specified");
+    string line;
+    while(getline(cin, line)){
+      if(line != "")
+        files.push_back(line);
+    }
   }
+  
+  // make file paths canonical
+  for(auto it = files.begin(); it != files.end(); ++it){
+    boost::system::error_code ec;
+    string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
+    if(ec.value() != boost::system::errc::success){
+      err() << "cannot access " << *it << ": " << ec.message() << endl;
+      it = files.erase(it);
+      if(it == files.end()) break;
+    }else{
+      *it = move(path);
+      if(oVerbose)
+        cout << *it << endl;
+    }
+  }
+
+  bool success;
+  fclip.Add(files, !oNonRecursive, serverMessages, success);
+  return success;
 }
 
 bool remove_run(const vector<string> &argv, FclipClient &fclip){
@@ -205,29 +206,35 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
           .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
+  vector<string> files;
   if(vm.count("file")){
-    vector<string> files = vm["file"].as<vector<string> >();
-    // make file paths canonical
-    for(auto it = files.begin(); it != files.end(); ++it){
-      boost::system::error_code ec;
-      string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
-      if(ec.value() != boost::system::errc::success){
-        err() << "cannot access " << *it << ": " << ec.message() << endl;
-        it = files.erase(it);
-        if(it == files.end()) break;
-      }else{
-        *it = move(path);
-        if(oVerbose)
-          cout << *it << endl;
-      }
-    }
-    
-    bool success;
-    fclip.Remove(files, oRemoveParents, serverMessages, success);
-    return success;
+    files = vm["file"].as<vector<string> >();
   }else{
-    throw runtime_error("no files specified");
+    string line;
+    while(getline(cin, line)){
+      if(line != "")
+        files.push_back(line);
+    }
   }
+  
+  // make file paths canonical
+  for(auto it = files.begin(); it != files.end(); ++it){
+    boost::system::error_code ec;
+    string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
+    if(ec.value() != boost::system::errc::success){
+      err() << "cannot access " << *it << ": " << ec.message() << endl;
+      it = files.erase(it);
+      if(it == files.end()) break;
+    }else{
+      *it = move(path);
+      if(oVerbose)
+        cout << *it << endl;
+    }
+  }
+
+  bool success;
+  fclip.Remove(files, true, serverMessages, success);
+  return success;
 }
 
 bool list_run(const vector<string> &argv, FclipClient &fclip){
@@ -545,8 +552,9 @@ int main(int argc, char** argv) {
     "Display help information about a command."
   ));
   commands.emplace("add", Command(add_run, add_options,
-    "usage: fclip add [<options>] <files>...\n\n"
-    "Add one or more files to the clipboard."
+    "usage: fclip add [<options>] [<files>...]\n\n"
+    "Add one or more files to the clipboard. If no files are specified\n"
+    "as arguments, they will be read from standard input."
   ));
   commands.emplace("clear", Command(clear_run, clear_options,
     "usage: fclip clear\n\n"
@@ -565,9 +573,10 @@ int main(int argc, char** argv) {
     "List all files from the current directory that are in the clipboard."
   ));
   commands.emplace("remove", Command(remove_run, remove_options,
-    "usage: fclip remove [<options>] <files>...\n"
+    "usage: fclip remove [<files>...]\n"
     "alias: rm\n\n"
-    "Remove one or more files from the clipboard."
+    "Remove one or more files from the clipboard. If no files are specified\n"
+    "as arguments, they will be read from standard input."
   ));
   oss.str("");
   oss << "usage: fclip stash [ push | pop [<id>] | drop [<id>] | list | clear ]\n\n"
