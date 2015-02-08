@@ -64,7 +64,7 @@ public:
     {
         ::DBus::CallMessage call;
         call.member("Clear");
-        ::DBus::Message ret = invoke_method (call);
+        assert (invoke_method_noreply (call));
     }
 
     void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream)
@@ -161,7 +161,7 @@ public:
     {
         ::DBus::CallMessage call;
         call.member("ClearStash");
-        ::DBus::Message ret = invoke_method (call);
+        assert (invoke_method_noreply (call));
     }
 
 

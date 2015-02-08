@@ -117,6 +117,10 @@ po::options_description stash_options(){
   return po::options_description();
 }
 
+po::options_description status_options(){
+  return po::options_description();
+}
+
 void help_run(const vector<string> &argv){
   po::options_description options = help_options();
   options.add_options()
@@ -141,13 +145,14 @@ void help_run(const vector<string> &argv){
   cout << "usage: fclip [<options>] <command> [<command-options>]" << endl << endl;
   cout << "Commands:" << endl;
   cout << left;
-  cout << setw(24) << "  add " << "add files to the clipboard" << endl;
-  cout << setw(24) << "  clear " << "clear the clipboard" << endl;
-  cout << setw(24) << "  foreach, each " << "perform actions for each file in the clipboard" << endl;
+  cout << setw(24) << "  add " << "add files to clipboard" << endl;
+  cout << setw(24) << "  clear " << "clear clipboard" << endl;
+  cout << setw(24) << "  foreach, each " << "perform actions for each file in clipboard" << endl;
   cout << setw(24) << "  list " << "list fclipped files in the current directory" << endl;
   cout << setw(24) << "  help " << "get help about a command" << endl;
-  cout << setw(24) << "  remove, rm " << "remove files from the clipboard" << endl;
+  cout << setw(24) << "  remove, rm " << "remove files from clipboard" << endl;
   cout << setw(24) << "  stash " << "temporarily save and restore clipboard contents" << endl;
+  cout << setw(24) << "  status " << "show info about clipboard" << endl;
   cout << endl;
   cout << general_options() << endl;
   return;
@@ -542,6 +547,49 @@ bool stash_run(const vector<string> &argv, FclipClient &fclip){
   }else throw runtime_error("unrecognised command: stash " + action);
 }
 
+bool status_run(const vector<string> &argv, FclipClient &fclip){
+  po::options_description options = status_options();
+  po::variables_map vm;
+  po::store(po::command_line_parser(argv).options(options).run(), vm);
+  po::notify(vm);
+  
+  string lca = fclip.LowestCommonAncestor();
+  bool success;
+  vector<string> files;
+  if(lca == ""){
+    fclip.DirectoryListing("", files, serverMessages, success);
+    if(!files.empty()){
+      cout << "Files in:";
+      for(const string &f : files){
+        cout << " " << f;
+      }
+      cout << endl;
+    }else{
+      cout << "Clipboard empty" << endl;
+    }
+  }else{
+    fclip.DirectoryListing(lca, files, serverMessages, success);
+    if(!files.empty()){
+      cout << "Files in " << lca << endl;
+    }else{
+      cout << lca << " in clipboard" << endl;
+    }
+  }
+  
+  size_t stashSize = fclip.ListStash().size();
+  if(stashSize){
+    cout << "Stash contents:" << endl;
+    vector<string> list = fclip.ListStash();
+    for(size_t i=0; i<list.size(); ++i){
+      cout << "  #" << i << ": " << list[i] << endl;
+    }
+  }else{
+    cout << "Stash empty" << endl;
+  }
+  
+  return true;
+}
+
 int main(int argc, char** argv) {
   bool success = true;
   
@@ -588,7 +636,10 @@ int main(int argc, char** argv) {
       << setw(24) << "  stash list" << "list all saved clipboards\n"
       << setw(24) << "  stash clear" << "remove all saved clipboards";
   commands.emplace("stash", Command(stash_run, stash_options, oss.str()));
-  
+  commands.emplace("status", Command(status_run, status_options,
+    "usage: fclip status\n\n"
+    "Show info about the clipboard."
+  ));
   
   try{
     po::options_description options = general_options();

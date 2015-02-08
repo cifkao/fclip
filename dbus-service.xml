@@ -13,7 +13,9 @@
       <arg type="as" name="messages" direction="out" />
       <arg type="b" name="success" direction="out" />
     </method>
-    <method name="Clear" />
+    <method name="Clear">
+      <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+    </method>
     <method name="ListFilesToStream">
       <arg type="s" name="directory" direction="in" />
       <arg type="b" name="absolute" direction="in" />
@@ -47,6 +49,7 @@
       <arg type="b" name="success" direction="out" />
     </method>
     <method name="ClearStash">
+      <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
     </method>
   </interface>
 </node>
