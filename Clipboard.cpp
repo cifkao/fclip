@@ -4,8 +4,6 @@
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
 #include "file_functions.h"
-#include "Directory.h"
-#include "File.h"
 #include "Clipboard.h"
 
 using namespace std;
@@ -39,53 +37,39 @@ bool Clipboard::add(const string &filename, bool recursive, vector<string> &mess
   for(auto it = path.begin(); it != path.end(); ++it){
     const fs::path &p = *it;
     currentPath /= p;
-    Directory *currentDir = static_cast<Directory *>(current);
     
-    if(currentDir->recursive())
+    if(current->recursive())
       break;
     
     // get the next node on the path
-    Directory::iterator childIt = currentDir->find(p.string());
+    TreeNode::iterator childIt = current->find(p.string());
     
-    if(it != targetIt || fs::is_directory(fstatus)){
-      if(childIt == currentDir->end()){
-        childIt = currentDir->add(new Directory(p.string()));
-      }else if(!childIt->second->directory()){
-        currentDir->remove(childIt);
-        childIt = currentDir->add(new Directory(p.string()));
-      }
-      current = childIt->second.get();
-    }else{
-      if(childIt == currentDir->end()){
-        childIt = currentDir->add(new File(p.string()));
-      }else if(childIt->second->directory()){
-        currentDir->remove(childIt);
-        childIt = currentDir->add(new File(p.string()));
-      }
-      current = childIt->second.get();
+    if(childIt == current->end()){ // child not found => create it
+      childIt = current->add(new TreeNode(p.string(), false));
     }
+    
+    current = childIt->second.get();
     
     if(it == targetIt){
-      if(current->directory()){
-        currentDir = static_cast<Directory *>(current);
-        currentDir->recursive(recursive);
-        currentDir->permanent(true);
-      }
+      current->recursive(recursive);
+      current->inClipboard(true);
       break;
     }
+    
   }
   
   return true;
 }
 
-bool Clipboard::remove(const vector<string> &files, bool removeParent, vector<string> &messages){
+bool Clipboard::remove(const vector<string> &files, bool recursive,
+        vector<string> &messages){
   for(auto const file : files){
-    remove(file, removeParent, messages);
+    remove(file, recursive, messages);
   }
   return true;
 }
 
-bool Clipboard::remove(const string &filename, bool removeParent, vector<string> &messages){
+bool Clipboard::remove(const string &filename, bool recursive, vector<string> &messages){
   boost::system::error_code ec;
   fs::path path = file_functions::getCanonicalPathToSymlink(filename, ec);
   if(ec.value() != boost::system::errc::success){
@@ -96,57 +80,40 @@ bool Clipboard::remove(const string &filename, bool removeParent, vector<string>
   fs::path currentPath("");
   TreeNode *current = tree_.get();
   
-  bool found = false; // if we found the file we wanted to remove
   auto targetIt = --path.end(); // the iterator pointing to the filename
-  Directory *currentDir = nullptr;
   for(auto it = path.begin(); it != path.end(); ++it){
     const fs::path &p = *it;
-    currentDir = static_cast<Directory *>(current);
     
-    if(currentDir->recursive()){
-      // we need to manually add all files in the directory so that we can
-      // remove the one we want to remove
-      fs::directory_iterator dirIt(currentPath, ec);
-      if(ec.value() != boost::system::errc::success){
-        messages.push_back("cannot access " + currentPath.string() + ": " + ec.message());
-        return false;
-      }
-      currentDir->recursive(false);
-      for(fs::directory_iterator eod; dirIt != eod; ++dirIt){
-        fs::file_status s = dirIt->symlink_status(ec);
-        if(fs::status_known(s)){
-          if(fs::is_directory(s)){
-            Directory *newDir = new Directory(dirIt->path().filename().string());
-            newDir->recursive(true);
-            currentDir->add(newDir);
-          }else{
-            currentDir->add(new File(dirIt->path().filename().string()));
-          }
-        }
-      }
+    if(current->recursive()){
+      messages.push_back(filename + " cannot be removed, because " +
+        currentPath.string() + " is marked as recursive");
+      return false;
     }
     
-    Directory::iterator childIt = currentDir->find(p.string());
-    if(childIt == currentDir->end()) break;
+    TreeNode::iterator childIt = current->find(p.string());
+    if(childIt == current->end()) break;
     
     if(it != targetIt){
       current = childIt->second.get();
     }else{
-      currentDir->remove(childIt);
-      found = true;
+      // we found the file we were looking for!
+      if(!childIt->second->empty() && !childIt->second->recursive() && !recursive){
+        // it has children, so we have to let it live
+        childIt->second->inClipboard(false);
+      }else{
+        current->remove(childIt);
+      }
     }
     
     currentPath /= p;
   }
   
-  // clear empty non-permanent parent directories
-  if(found && removeParent){
-    while(currentDir != nullptr && currentDir->parent() != nullptr &&
-            currentDir->empty() && !currentDir->permanent()){
-      Directory *parent = currentDir->parent();
-      parent->remove(currentDir->name());
-      currentDir = parent;
-    }
+  // clear parent directories that are not in the clipboard
+  while(current != nullptr && current->parent() != nullptr &&
+          current->empty() && !current->inClipboard()){
+    TreeNode *parent = current->parent();
+    parent->remove(current->name());
+    current = parent;
   }
   
   return true;
@@ -162,15 +129,15 @@ bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
   }
   
   fs::path currentPath("");
-  Directory *currentDir = tree_.get();
+  TreeNode *currentDir = tree_.get();
   for(auto it = path.begin(); it != path.end(); ++it){
     const fs::path &p = *it;
-    Directory::iterator childIt = currentDir->find(p.string());
-    if(childIt==currentDir->end() || !childIt->second->directory())
+    TreeNode::iterator childIt = currentDir->find(p.string());
+    if(childIt==currentDir->end())
       return true;
     
     currentPath /= p;
-    currentDir = static_cast<Directory *>(childIt->second.get());
+    currentDir = childIt->second.get();
     
     if(currentDir->recursive()){
       if(fs::is_directory(path, ec) && ec.value() == boost::system::errc::success){
@@ -199,7 +166,7 @@ bool Clipboard::stash(std::vector<std::string> &messages){
     return false;
   }
   stash_.push_front(move(tree_));
-  tree_.reset(new Directory());
+  tree_.reset(new TreeNode());
   return true;
 }
   
@@ -262,17 +229,13 @@ bool Clipboard::dropStash(size_t stashId, vector<string> &messages){
 
 /* PRIVATE FUNCTIONS */
 
-fs::path Clipboard::lowestCommonAncestor(const Directory &tree){
+fs::path Clipboard::lowestCommonAncestor(const TreeNode &tree){
   fs::path path(tree.name());
-  const Directory *currentDir = &tree;
-  while(currentDir->size()==1 && !currentDir->permanent()){
+  const TreeNode *currentDir = &tree;
+  while(currentDir->size()==1 && !currentDir->inClipboard()){
     const TreeNode *f = currentDir->begin()->second.get();
     path /= f->name();
-    if(f->directory()){
-      currentDir = static_cast<const Directory *>(f);
-    }else{
-      return path;
-    }
+    currentDir = f;
   }
   
   return path;

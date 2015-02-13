@@ -46,7 +46,7 @@ public:
         static ::DBus::IntrospectedArgument Remove_args[] = 
         {
             { "files", "as", true },
-            { "removeParent", "b", true },
+            { "recursive", "b", true },
             { "messages", "as", false },
             { "success", "b", false },
             { 0, 0, 0 }
@@ -149,7 +149,7 @@ public:
      * you will have to implement them in your ObjectAdaptor
      */
     virtual void Add(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
-    virtual void Remove(const std::vector< std::string >& files, const bool& removeParent, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void Remove(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Clear() = 0;
     virtual void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream) = 0;
     virtual void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;

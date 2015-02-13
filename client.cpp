@@ -33,8 +33,7 @@ bool oAbsPaths;
 bool oFiles;
 bool oDirs;
 bool oLinks;
-// "add" options:
-bool oNonRecursive;
+bool oRecursive;
 // "for-each" options:
 bool oForEachRemove;
 bool oForEachPrint;
@@ -87,12 +86,15 @@ po::options_description help_options(){
 po::options_description add_options(){
   po::options_description options("Options");
   options.add_options()
-          (",n", po::bool_switch(&oNonRecursive), "do not add directory contents recursively");
+          ("recursive,r", po::bool_switch(&oRecursive), "add directory contents recursively");
   return move(options);
 }
 
 po::options_description remove_options(){
-  return po::options_description();
+  po::options_description options("Options");
+  options.add_options()
+          ("recursive,r", po::bool_switch(&oRecursive), "remove directory contents recursively");
+  return move(options);
 }
 
 po::options_description list_options(){
@@ -198,7 +200,7 @@ bool add_run(const vector<string> &argv, FclipClient &fclip){
   }
 
   bool success;
-  fclip.Add(files, !oNonRecursive, serverMessages, success);
+  fclip.Add(files, oRecursive, serverMessages, success);
   return success;
 }
 
@@ -240,7 +242,7 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
   }
 
   bool success;
-  fclip.Remove(files, true, serverMessages, success);
+  fclip.Remove(files, oRecursive, serverMessages, success);
   return success;
 }
 
@@ -292,8 +294,6 @@ void forEachDoActions(const fs::path &path, fs::file_status fstatus,
   
   if(oForEachPrint)
     cout << path.string() << endl;
-
-  
   
   for(string cmd : commands){
     // replace {} with path
@@ -410,6 +410,8 @@ void forEachWorker(const string &baseDir, const vector<string> &commands,
 }
 
 bool forEach_run(const vector<string> &argv, FclipClient &fclip){
+  fclip.Introspect(); // will throw exception if server not available
+  
   po::options_description options = forEach_options();
   options.add_options()
           ("base-dir", po::value<string>());
@@ -482,6 +484,12 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
     fs::remove(pipePath);
   }catch(...){
     fs::remove(pipePath);
+    {
+      // notify worker that no more paths will be added to the queue
+      unique_lock<mutex> lk(qLock);
+      done = true;
+      cv.notify_all();
+    }
     throw;
   }
   

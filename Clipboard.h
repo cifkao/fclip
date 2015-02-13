@@ -8,11 +8,10 @@
 #include <cstddef>
 #include <boost/filesystem.hpp>
 #include "TreeNode.h"
-#include "Directory.h"
 
 class Clipboard {
 public:
-  Clipboard() : tree_(new Directory()) {}
+  Clipboard() : tree_(new TreeNode()) {}
   virtual ~Clipboard() {}
   
   /**
@@ -32,16 +31,18 @@ public:
   /**
    * Remove a file from the clipboard.
    * @param file an absolute path to the file
+   * @param recursive remove directory contents recursively
    * @param removeParent whether empty parent directories should be removed
    */
-  bool remove(const std::string &file, bool removeParent, std::vector<std::string> &messages);
+  bool remove(const std::string &file, bool recursive, std::vector<std::string> &messages);
   
   /**
    * Remove multiple files from the clipboard.
    * @param files a vector of absolute paths
+   * @param recursive remove directory contents recursively
    * @param removeParent whether empty parent directories should be removed
    */
-  bool remove(const std::vector<std::string> &files, bool removeParent, std::vector<std::string> &messages);
+  bool remove(const std::vector<std::string> &files, bool recursive, std::vector<std::string> &messages);
   
   /**
    * Removes all files from the clipboard.
@@ -117,8 +118,15 @@ public:
   void clearStash(){ stash_.clear(); }
   
 private:
-  std::unique_ptr<Directory> tree_;
-  std::deque<std::unique_ptr<Directory>> stash_;
+  std::unique_ptr<TreeNode> tree_;
+  std::deque<std::unique_ptr<TreeNode>> stash_;
+  
+  /**
+   * Add all files in a directory with a @c recursive flag and remove the flag.
+   * @param directory the node of the tree corresponding to @c path
+   * @param path a canonical path to a directory
+   */
+  bool expandDirectory(TreeNode *directory, const boost::filesystem::path &path, std::vector<std::string> &messages);
   
   /**
    * Same as forEachFile, but with additional parameters to allow for recursion.
@@ -128,7 +136,7 @@ private:
    * @param fn a binary function that accepts a string and a bool
    */
   template<typename Func>
-  bool forEachFile(const Directory &directory, const boost::filesystem::path &path, const boost::filesystem::path &base, Func fn, std::vector<std::string> &messages);
+  bool forEachFile(const TreeNode &directory, const boost::filesystem::path &path, const boost::filesystem::path &base, Func fn, std::vector<std::string> &messages);
   
   /**
    * Same as forEachFile, but only lists files in one directory (non-recursively),
@@ -140,13 +148,13 @@ private:
    * @param fn a binary function that accepts a string and a bool
    */
   template<typename Func>
-  bool forEachFileInRecursiveDirectory(const Directory &directory, const boost::filesystem::path &path, bool absolute, Func fn, std::vector<std::string> &messages);
+  bool forEachFileInRecursiveDirectory(const TreeNode &directory, const boost::filesystem::path &path, bool absolute, Func fn, std::vector<std::string> &messages);
   
   /**
    * Returns a path to the lowest common ancestor of all files in the
    * given tree.
    */
-  boost::filesystem::path lowestCommonAncestor(const Directory &tree);
+  boost::filesystem::path lowestCommonAncestor(const TreeNode &tree);
 };
 
 
@@ -167,21 +175,21 @@ bool Clipboard::forEachFile(const boost::filesystem::path &path_, bool absolute,
 
   // first we need to find the path in the tree
   fs::path currentPath("");
-  Directory *currentDir = tree_.get();
+  TreeNode *currentDir = tree_.get();
   for(auto it = path.begin(); it != path.end(); ++it){
     const fs::path &p = *it;
-    Directory::iterator childIt = currentDir->find(p.string());
-    if(childIt==currentDir->end() || !childIt->second->directory()){
+    TreeNode::iterator childIt = currentDir->find(p.string());
+    if(childIt==currentDir->end()){
       if(currentDir->recursive()){
         // the path doesn't exist in the tree, but it is present
-        // implicitly (in a directory with the recursive flag)
+        // implicitly (under a directory with the recursive flag)
         return forEachFileInRecursiveDirectory(*currentDir, path, absolute, fn, messages);
       }
       return true;
     }
     
     currentPath /= p;
-    currentDir = static_cast<Directory *>(childIt->second.get());
+    currentDir = childIt->second.get();
   }
   
   if(currentDir->recursive())
@@ -191,7 +199,7 @@ bool Clipboard::forEachFile(const boost::filesystem::path &path_, bool absolute,
 }
 
 template<typename Func>
-bool Clipboard::forEachFileInRecursiveDirectory(const Directory &directory,
+bool Clipboard::forEachFileInRecursiveDirectory(const TreeNode &directory,
         const boost::filesystem::path &path, bool absolute,
         Func fn, std::vector<std::string> &messages){
   namespace fs = boost::filesystem;
@@ -220,16 +228,15 @@ bool Clipboard::forEachFileInRecursiveDirectory(const Directory &directory,
 }
 
 template<typename Func>
-bool Clipboard::forEachFile(const Directory &directory, const boost::filesystem::path &path,
+bool Clipboard::forEachFile(const TreeNode &directory, const boost::filesystem::path &path,
         const boost::filesystem::path &base, Func fn, std::vector<std::string> &messages){
   for(const auto &p : directory){
     TreeNode &f = *p.second.get();
-    Directory &dir = static_cast<Directory &>(f);
-    // dir might be garbage! (have to check f.directory())
-    if(f.directory() && !dir.empty()){
-      forEachFile(dir, path / f.name(), base / f.name(), fn, messages);
-    }else{
-      fn((base / f.name()).string(), f.directory() ? dir.recursive() : false);
+    if(f.inClipboard()){
+      fn((base / f.name()).string(), f.recursive());
+    }
+    if(!f.empty()){
+      forEachFile(f, path / f.name(), base / f.name(), fn, messages);
     }
   }
   

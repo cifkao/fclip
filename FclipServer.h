@@ -23,10 +23,10 @@ public:
   { success = clip_.add(files, recursive, messages); }
   
   virtual void Remove(const std::vector<std::string>& files,
-    const bool &removeParent,
+    const bool &recursive,
     std::vector< std::string >& messages,
     bool& success)
-  { success = clip_.remove(files, removeParent, messages); }
+  { success = clip_.remove(files, recursive, messages); }
   
   virtual void Clear() { clip_.clear(); }
   
