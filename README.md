@@ -48,7 +48,7 @@ To get help about individual commands and their options, run `fclip help [<comma
 
 ### Stashing
 If you want a clean clipboard but have some files in it that you want to use later, you can stash them away
-for a while using `fclip stash`. Get them back using `fclip stash pop` or get rid of the stash using
+for a while using `fclip stash`. Get them back using `fclip stash pop` or get rid of them using
 `fclip stash drop`.
 
 If you do `fclip stash` multiple times, your stashes will be stored in a stack. 
