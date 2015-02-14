@@ -60,7 +60,7 @@ If you want a clean clipboard but have some files in it that you want to use lat
 for a while using `fclip stash`. Restore them using `fclip stash pop` or get rid of them using
 `fclip stash drop`.
 
-If you do `fclip stash` multiple times, your stashes will be stored in a stack. 
+If you do `fclip stash` multiple times (without doing `pop` or `drop`), your stashes will be stored in a stack. 
 To see the stashes you've stored, use `fclip stash list` or `fclip stash ls`:
 
     $ fclip stash ls
