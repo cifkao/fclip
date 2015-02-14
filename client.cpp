@@ -86,7 +86,7 @@ po::options_description help_options(){
 po::options_description add_options(){
   po::options_description options("Options");
   options.add_options()
-          ("recursive,r", po::bool_switch(&oRecursive), "add directory contents recursively");
+          ("recursive,r", po::bool_switch(&oRecursive), "mark files as 'recursive'");
   return move(options);
 }
 
@@ -646,13 +646,13 @@ int main(int argc, char** argv) {
   ));
   oss.str("");
   oss << "usage: fclip stash [ push | pop [<id>] | drop [<id>] | list | clear ]\n\n"
-      << "Manipulate the stack of saved clipboard states:\n"
+      << "Manipulate the stack of saved clipboard states ('stashes'):\n"
       << left
-      << setw(24) << "  stash [push]" << "put the current clipboard on the top\n"
-      << setw(24) << "  stash pop [<id>] " << "restore a saved clipboard\n"
-      << setw(24) << "  stash drop [<id>]" << "remove a saved clipboard\n"
-      << setw(24) << "  stash list" << "list all saved clipboards\n"
-      << setw(24) << "  stash clear" << "remove all saved clipboards";
+      << setw(24) << "  stash [push]" << "stash the current clipboard on the top\n"
+      << setw(24) << "  stash pop [<id>] " << "restore a stash\n"
+      << setw(24) << "  stash drop [<id>]" << "remove a stash\n"
+      << setw(24) << "  stash list" << "list all stashes\n"
+      << setw(24) << "  stash clear" << "remove all stashes";
   commands.emplace("stash", Command(stash_run, stash_options, oss.str()));
   commands.emplace("status", Command(status_run, status_options,
     "usage: fclip status\n\n"
