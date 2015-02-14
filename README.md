@@ -27,7 +27,7 @@ Use `fclip add` to add files (file paths) to the clipboard:
     $ cd ~/Pictures
     $ fclip add kittens/*.jpg
 
-Use `fclip rm` to remove them:
+Use `fclip rm` to un-add files:
 
     $ fclip rm kittens/ugly_kitten.jpg
 
