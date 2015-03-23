@@ -24,7 +24,8 @@
     </method>
     <method name="DirectoryListing">
       <arg type="s" name="directory" direction="in" />
-      <arg type="as" name="files" direction="out" />
+      <arg type="a(sbb)" name="files" direction="out" />
+      <arg type="b" name="recursive" direction="out" />
       <arg type="as" name="messages" direction="out" />
       <arg type="b" name="success" direction="out" />
     </method>

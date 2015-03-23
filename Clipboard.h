@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <deque>
+#include <tuple>
 #include <string>
 #include <memory>
 #include <cstddef>
@@ -63,13 +64,16 @@ public:
   template<typename Func>
   bool forEachFile(const boost::filesystem::path &path, bool absolute, Func fn, std::vector<std::string> &messages);
   
+  typedef std::vector<std::tuple<std::string,bool,bool> > directoryListing_t;
+  
   /**
    * Lists all files and directories in a given directory that are in the
    * clipboard.
    * @param path an absolute path to the directory
    * @param[out] files the names of the files in the clipboard
+   * @param[out] recursive whether the directory has the recursive flag
    */
-  bool directoryListing(const boost::filesystem::path &path, std::vector<std::string> &files, std::vector<std::string> &messages); 
+  bool directoryListing(const boost::filesystem::path &path, directoryListing_t &files, bool &recursive, std::vector<std::string> &messages); 
 
   /**
    * Returns a path to the lowest common ancestor of all files in the

@@ -35,10 +35,10 @@ public:
     const std::string& stream);
   
   virtual void DirectoryListing(const std::string& directory,
-    std::vector< std::string >& files,
+    std::vector< ::DBus::Struct< std::string, bool, bool > >& files,
+    bool& recursive,
     std::vector< std::string >& messages,
-    bool& success)
-  { success = clip_.directoryListing(directory, files, messages); }
+    bool& success);
 
   virtual std::string LowestCommonAncestor()
   { return clip_.lowestCommonAncestor().string(); }

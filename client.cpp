@@ -5,6 +5,7 @@
 #include <sstream>
 #include <queue>
 #include <unordered_map>
+#include <set>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -37,6 +38,8 @@ bool oRecursive;
 // "for-each" options:
 bool oForEachRemove;
 bool oForEachPrint;
+// "list" options:
+bool oAll;
 
 
 typedef bool (*action_f)(const vector<string> &, FclipClient &);
@@ -98,7 +101,10 @@ po::options_description remove_options(){
 }
 
 po::options_description list_options(){
-  return po::options_description();
+  po::options_description options("Options");
+  options.add_options()
+          ("all,a", po::bool_switch(&oAll), "show hidden files");
+  return move(options);
 }
 
 po::options_description forEach_options(){
@@ -152,7 +158,7 @@ void help_run(const vector<string> &argv){
   cout << setw(24) << "  add " << "add files to clipboard" << endl;
   cout << setw(24) << "  clear " << "clear clipboard" << endl;
   cout << setw(24) << "  foreach, each " << "perform actions for each file in clipboard" << endl;
-  cout << setw(24) << "  list " << "list fclipped files in the current directory" << endl;
+  cout << setw(24) << "  list, ls " << "show info about files in the current directory" << endl;
   cout << setw(24) << "  help " << "get help about a command" << endl;
   cout << setw(24) << "  remove, rm " << "remove files from clipboard" << endl;
   cout << setw(24) << "  stash " << "temporarily save and restore clipboard contents" << endl;
@@ -257,25 +263,63 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
           .options(options).positional(positional).run(), vm);
   po::notify(vm);
   
-  string path = ".";
+  string strPath = ".";
   if(vm.count("path")){
-    path = vm["path"].as<string>();
+    strPath = vm["path"].as<string>();
   }
   
+  fs::path path;
   {
     boost::system::error_code ec;
-    fs::path path_ = fs::canonical(path, ec);
+    path = file_functions::getCanonicalPathToSymlink(strPath, ec);
     if(ec.value() != boost::system::errc::success){
-      throw runtime_error("Cannot access " + path + ": " + ec.message());
+      throw runtime_error("cannot access " + strPath + ": " + ec.message());
     }
-    path = path_.string();
+    strPath = path.string();
   }
   
-  bool success;
-  vector<string> files;
-  fclip.DirectoryListing(path, files, serverMessages, success);
+  bool success, dirRecursive;
+  vector<::DBus::Struct<string,bool,bool>> files;
+  fclip.DirectoryListing(strPath, files, dirRecursive, serverMessages, success);
   if(success){
+    unordered_map<string,::DBus::Struct<string,bool,bool> > cbFileMap;
+    set<string> fileSet; // for sorting by filename
     for(auto const &f : files){
+      cbFileMap.emplace(f._1, f);
+      fileSet.insert(f._1);
+    }
+    
+    try{
+      for(fs::directory_iterator dirIt(path), dirEnd; dirIt != dirEnd; ++dirIt){
+        string name = dirIt->path().filename().string();
+        if(name[0] != '.' || oAll){
+          fileSet.insert(name);
+        }
+      }
+    }catch(const fs::filesystem_error& ex){
+      throw runtime_error("cannot list " + strPath + ": " + ex.code().message());
+    }
+    
+    for(auto const &f : fileSet){
+      if(dirRecursive){
+        cout << "[^] ";
+      }else{
+        auto it = cbFileMap.find(f);
+        if(it != cbFileMap.end()){
+          const string &name = it->second._1;
+          const bool &inClipboard = it->second._2;
+          const bool &recursive = it->second._3;
+
+          if(!inClipboard)
+            cout << "[>] ";
+          else if(recursive)
+            cout << "[+] ";
+          else
+            cout << "[-] ";
+        }else{
+          cout << "[ ] ";
+        }
+      }
       cout << f << endl;
     }
     return true;
@@ -477,7 +521,7 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
       {
         // push path to queue and wake up worker
         unique_lock<mutex> lk(qLock);
-        qu.push(make_pair(str, recursive));
+        qu.emplace(str, recursive);
         cv.notify_all();
       }
     }
@@ -573,22 +617,23 @@ bool status_run(const vector<string> &argv, FclipClient &fclip){
   
   string lca = fclip.LowestCommonAncestor();
   bool success;
-  vector<string> files;
+  vector<::DBus::Struct<string,bool,bool> > files;
+  bool dirRecursive;
+  
+  fclip.DirectoryListing(lca, files, dirRecursive, serverMessages, success);
   if(lca == ""){
-    fclip.DirectoryListing("", files, serverMessages, success);
     if(!files.empty()){
       cout << "Files in:";
-      for(const string &f : files){
-        cout << " " << f;
+      for(const auto &f : files){
+        cout << " " << f._1;
       }
       cout << endl;
     }else{
       cout << "Clipboard empty" << endl;
     }
   }else{
-    fclip.DirectoryListing(lca, files, serverMessages, success);
-    if(!files.empty()){
-      cout << "Files in " << lca << endl;
+    if(!files.empty() || dirRecursive){
+      cout << "Files in " << lca << " in clipboard" << endl;
     }else{
       cout << lca << " in clipboard" << endl;
     }
@@ -634,9 +679,15 @@ int main(int argc, char** argv) {
     "will be processed."
   ));
   commands.emplace("list", Command(list_run, list_options,
-    "usage: fclip list <files>...\n"
+    "usage: fclip list [<dir>]\n"
     "alias: ls\n\n"
-    "List all files from the current directory that are in the clipboard."
+    "Show the state of each of the files in the current directory\n"
+    "or a given directory. The following file states are possible:\n"
+    "  [-] in clipboard\n"
+    "  [+] in clipboard and marked as 'recursive'\n"
+    "  [^] in clipboard because of a 'recursive' parent directory\n"
+    "  [>] not in clipboard, but contains files that are\n"
+    "  [ ] not in clipboard at all"
   ));
   commands.emplace("remove", Command(remove_run, remove_options,
     "usage: fclip remove [<files>...]\n"

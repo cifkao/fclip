@@ -65,7 +65,8 @@ public:
         static ::DBus::IntrospectedArgument DirectoryListing_args[] = 
         {
             { "directory", "s", true },
-            { "files", "as", false },
+            { "files", "a(sbb)", false },
+            { "recursive", "b", false },
             { "messages", "as", false },
             { "success", "b", false },
             { 0, 0, 0 }
@@ -152,7 +153,7 @@ public:
     virtual void Remove(const std::vector< std::string >& files, const bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
     virtual void Clear() = 0;
     virtual void ListFilesToStream(const std::string& directory, const bool& absolute, const std::string& stream) = 0;
-    virtual void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success) = 0;
+    virtual void DirectoryListing(const std::string& directory, std::vector< ::DBus::Struct< std::string, bool, bool > >& files, bool& recursive, std::vector< std::string >& messages, bool& success) = 0;
     virtual std::string LowestCommonAncestor() = 0;
     virtual void Stash(std::vector< std::string >& messages, bool& success) = 0;
     virtual void Unstash(const uint32_t& n, std::vector< std::string >& messages, bool& success) = 0;
@@ -223,15 +224,17 @@ private:
         ::DBus::MessageIter ri = call.reader();
 
         std::string argin1; ri >> argin1;
-        std::vector< std::string > argout1;
-        std::vector< std::string > argout2;
-        bool argout3;
-        DirectoryListing(argin1, argout1, argout2, argout3);
+        std::vector< ::DBus::Struct< std::string, bool, bool > > argout1;
+        bool argout2;
+        std::vector< std::string > argout3;
+        bool argout4;
+        DirectoryListing(argin1, argout1, argout2, argout3, argout4);
         ::DBus::ReturnMessage reply(call);
         ::DBus::MessageIter wi = reply.writer();
         wi << argout1;
         wi << argout2;
         wi << argout3;
+        wi << argout4;
         return reply;
     }
     ::DBus::Message _LowestCommonAncestor_stub(const ::DBus::CallMessage &call)

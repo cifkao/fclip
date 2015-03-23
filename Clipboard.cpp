@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <tuple>
 #include <cstddef>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
@@ -119,8 +120,8 @@ bool Clipboard::remove(const string &filename, bool recursive, vector<string> &m
   return true;
 }
 
-bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
-        vector<string> &messages){
+bool Clipboard::directoryListing(const fs::path &_path,
+        directoryListing_t &files, bool &recursive, vector<string> &messages){
   boost::system::error_code ec;
   fs::path path = fs::canonical(_path, ec);
   if(ec.value() != boost::system::errc::success){
@@ -140,21 +141,14 @@ bool Clipboard::directoryListing(const fs::path &_path, vector<string> &files,
     currentDir = childIt->second.get();
     
     if(currentDir->recursive()){
-      if(fs::is_directory(path, ec) && ec.value() == boost::system::errc::success){
-        fs::directory_iterator it(path, ec), eod;
-        if(ec.value() != boost::system::errc::success){
-          messages.push_back("cannot access " + path.string() + ": " + ec.message());
-          return false;
-        }
-        // push filenames
-        transform(it, eod, back_inserter(files),
-                [](const fs::directory_entry &e){ return e.path().filename().string(); });
-      }
+      recursive = true;
       return true;
     }
   }
+  
+  recursive = false;
   for(auto const &f : *currentDir){
-    files.push_back(f.first);
+    files.push_back(make_tuple(f.first, f.second->inClipboard(), f.second->recursive()));
   }
   
   return true;

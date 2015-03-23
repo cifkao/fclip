@@ -79,7 +79,7 @@ public:
         assert (invoke_method_noreply (call));
     }
 
-    void DirectoryListing(const std::string& directory, std::vector< std::string >& files, std::vector< std::string >& messages, bool& success)
+    void DirectoryListing(const std::string& directory, std::vector< ::DBus::Struct< std::string, bool, bool > >& files, bool& recursive, std::vector< std::string >& messages, bool& success)
     {
         ::DBus::CallMessage call;
         ::DBus::MessageIter wi = call.writer();
@@ -90,6 +90,7 @@ public:
         ::DBus::MessageIter ri = ret.reader();
 
         ri >> files;
+        ri >> recursive;
         ri >> messages;
         ri >> success;
     }
