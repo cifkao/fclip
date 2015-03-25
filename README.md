@@ -2,7 +2,7 @@ fclip Readme
 ============
 `fclip` is a command-line clipboard for the filesystem. It allows to use a terminal
 to manipulate files much like in a GUI file manager, but in a more powerful and
-versatile way.
+versatile way. It runs on Linux systems with the D-Bus message bus.
 
 Installation
 ------------
@@ -53,6 +53,7 @@ You can supply a directory path to `fclip each` in order to only process files u
     kittens/some_other_kitten.jpg
 
 Clear the clipboard with `fclip clear`. To get an overview of the clipboard's contents, use `fclip status`.
+
 To get help about individual commands and their options, run `fclip help [<command>]`.
 
 ### Stashing
