@@ -18,6 +18,8 @@ you log in. `fclip` also requires a D-Bus user message bus.
 
 How To Use
 ----------
+This is a brief introduction to using `fclip`. You can also read [the manual](http://github.com/cifkao/fclip/wiki/Fclip-Manual).
+
 `fclip` doesn't store entire files, just file paths. The paths remain in the clipboard
 until they are removed.
 
