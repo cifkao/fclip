@@ -74,8 +74,9 @@ bool Clipboard::remove(const string &filename, bool recursive, vector<string> &m
   boost::system::error_code ec;
   fs::path path = file_functions::getCanonicalPathToSymlink(filename, ec);
   if(ec.value() != boost::system::errc::success){
-    messages.push_back("cannot access " + filename + ": " + ec.message());
-    return false;
+    path = file_functions::normalizePath(filename);
+    messages.push_back("cannot access " + filename + ": " + ec.message() +
+      "; using " + path.string());
   }
   
   fs::path currentPath("");

@@ -237,14 +237,13 @@ bool remove_run(const vector<string> &argv, FclipClient &fclip){
     boost::system::error_code ec;
     string path = file_functions::getCanonicalPathToSymlink(*it, ec).string();
     if(ec.value() != boost::system::errc::success){
-      err() << "cannot access " << *it << ": " << ec.message() << endl;
-      it = files.erase(it);
-      if(it == files.end()) break;
-    }else{
-      *it = move(path);
-      if(oVerbose)
-        cout << *it << endl;
+      // silently pass non-canonical path; will be handled on server
+      path = fs::absolute(*it, fs::current_path()).string();
     }
+
+    *it = move(path);
+    if(oVerbose)
+      cout << *it << endl;
   }
 
   bool success;

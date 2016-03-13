@@ -22,6 +22,18 @@ namespace file_functions {
       return fs::canonical(p, ec);
   }
   
+  fs::path normalizePath(const fs::path &p){
+    fs::path result;
+    for(auto const &name : p){
+      if(name == ".."){
+        result = result.parent_path();
+      }else if(name != "."){
+        result /= name;
+      }
+    }
+    return result;
+  }
+
   fs::path removePathPrefix(const fs::path &path, const fs::path &prefix){
     fs::path result("");
     auto it = path.begin();
