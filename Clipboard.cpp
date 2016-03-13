@@ -222,8 +222,6 @@ bool Clipboard::dropStash(size_t stashId, vector<string> &messages){
   return true;
 }
 
-/* PRIVATE FUNCTIONS */
-
 fs::path Clipboard::lowestCommonAncestor(const TreeNode &tree){
   fs::path path(tree.name());
   const TreeNode *currentDir = &tree;
