@@ -504,7 +504,7 @@ bool forEach_run(const vector<string> &argv, FclipClient &fclip){
 
     // read paths from pipe
     string line;
-    while (std::getline(pipe, line)){
+    while (std::getline(pipe, line, '\0')){
       std::istringstream iss(line);
       bool recursive; size_t length;
       if(!(iss >> recursive >> length))

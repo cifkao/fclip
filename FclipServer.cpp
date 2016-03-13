@@ -17,8 +17,8 @@ void FclipServer::ListFilesToStream(const string& directory,
   ofstr.open(stream);
 
   auto fn = [&ofstr](string filename, bool recursive){
-    ofstr << recursive << " " << filename.length() << "\n";
-    ofstr << filename << "\n";
+    ofstr << recursive << ' ' << filename.length() << '\0';
+    ofstr << filename << '\0';
   };
 
   vector<string> messages;
