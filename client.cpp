@@ -313,9 +313,9 @@ bool list_run(const vector<string> &argv, FclipClient &fclip){
           if(!inClipboard)
             cout << "[>] ";
           else if(recursive)
-            cout << "[+] ";
+            cout << "[*] ";
           else
-            cout << "[-] ";
+            cout << "[+] ";
         }else{
           cout << "[ ] ";
         }
@@ -683,8 +683,8 @@ int main(int argc, char** argv) {
     "alias: ls\n\n"
     "Show the state of each of the files in the current directory\n"
     "or a given directory. The following file states are possible:\n"
-    "  [-] in clipboard\n"
-    "  [+] in clipboard and marked as 'recursive'\n"
+    "  [+] in clipboard\n"
+    "  [*] in clipboard and marked as 'recursive'\n"
     "  [^] in clipboard because of a 'recursive' parent directory\n"
     "  [>] not in clipboard, but contains files that are\n"
     "  [ ] not in clipboard at all"
